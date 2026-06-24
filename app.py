@@ -173,44 +173,41 @@ async def dashboard(request: Request):
     if not cookies:
         return RedirectResponse("/login", status_code=303)
 
+    import asyncio
+    file_path = request.query_params.get("path") or "/sata14/my/data/"
+    if not file_path.startswith("/"):
+        file_path = "/" + file_path
+    if not file_path.endswith("/"):
+        file_path = file_path + "/"
+    breadcrumb = build_breadcrumb(file_path)
+
     async with httpx.AsyncClient(timeout=10, cookies=cookies) as client:
-        # ---- 监控类 ----
-        monitor_html_resp = await client.get(_append_common_query(f"{NAS_BASE}/zstatus"))
-        monitor = parse_zstatus(monitor_html_resp.text)
-
-        # ---- 存储池 ----
-        zspool_info = await _nas_get(client, "/zspool/info")
-        zspool_hw = await _nas_get(client, "/zspool/hardware/info")
-
-        # ---- 文件列表(只读,可下转) ----
-        file_path = request.query_params.get("path") or "/sata14/my/data/"
-        # 标准化:保证以 / 开头,以 / 结尾
-        if not file_path.startswith("/"):
-            file_path = "/" + file_path
-        if not file_path.endswith("/"):
-            file_path = file_path + "/"
-        file_resp = await _nas_post(client, "/v2/file/list", {
-            "folderId": 0,
-            "path": file_path,
-            "start": 0,
-            "num": 200,
-            "sortby": "name",
-            "order": "asc",
-            "show_hidden": 0,
-        })
-        # 构造面包屑:path 段 + 每一段的累积路径
-        breadcrumb = build_breadcrumb(file_path)
-
-        # ---- 极影视 ----
-        zvideo_classes = await _nas_post(client, "/zvideo/classification/list", {})
-        zvideo_dirs = await _nas_post(client, "/zvideo/classification/dirs", {})
+        # 所有 NAS 调用并发跑(原本串行 ~1.5s,并发后约等于最慢一个)
+        monitor_html, zspool_info, zspool_hw, file_resp, zvideo_classes, zvideo_dirs = (
+            await asyncio.gather(
+                client.get(_append_common_query(f"{NAS_BASE}/zstatus")),
+                _nas_get(client, "/zspool/info"),
+                _nas_get(client, "/zspool/hardware/info"),
+                _nas_post(client, "/v2/file/list", {
+                    "folderId": 0,
+                    "path": file_path,
+                    "start": 0,
+                    "num": 200,
+                    "sortby": "name",
+                    "order": "asc",
+                    "show_hidden": 0,
+                }),
+                _nas_post(client, "/zvideo/classification/list", {}),
+                _nas_post(client, "/zvideo/classification/dirs", {}),
+            )
+        )
 
     return templates.TemplateResponse(
         request,
         "dashboard.html",
         {
             "user": request.session.get("nas_user", {}),
-            "monitor": monitor,
+            "monitor": parse_zstatus(monitor_html.text),
             "zspool_info": zspool_info,
             "zspool_hw": zspool_hw,
             "file_path": file_path,
