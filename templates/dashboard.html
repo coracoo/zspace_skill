@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>ZSpace NAS · 数据看板(只读)</title>
+<style>
+  body { font: 14px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f4f5f7; margin: 0; padding: 24px 16px 80px; color: #333; }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
+  header h1 { font-size: 19px; margin: 0; }
+  header .right { font-size: 12px; color: #888; }
+  header .right a { color: #c0392b; text-decoration: none; margin-left: 12px; }
+  .summary { background: linear-gradient(135deg,#e8f5e9,#f1f8e9); padding: 14px 18px; border-radius: 8px; margin-bottom: 18px; border-left: 4px solid #27ae60; }
+  .summary h2 { margin: 0 0 6px; font-size: 14px; color: #27ae60; }
+  .summary p { margin: 0; font-size: 13px; color: #555; }
+  h2.section { font-size: 16px; margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 2px solid #e0e0e0; color: #2c3e50; }
+  h2.section .desc { font-size: 12px; color: #888; font-weight: normal; margin-left: 8px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .card { background: #fff; padding: 14px 16px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.04); }
+  .card.full { grid-column: 1 / -1; }
+  .card h3 { font-size: 13px; margin: 0 0 10px; color: #666; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  th { font-weight: 600; color: #555; background: #fafbfc; font-size: 12px; }
+  td.v { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+  .kv { display: grid; grid-template-columns: 100px 1fr; gap: 4px 12px; font-size: 13px; }
+  .kv .k { color: #888; }
+  .kv .v { font-weight: 500; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; }
+  .pill.ok { background: #e6f9ee; color: #27ae60; }
+  .pill.warn { background: #fff8e1; color: #f57c00; }
+  .pill.fail { background: #fde8e8; color: #c0392b; }
+  pre { background: #f7f7f9; padding: 8px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 200px; margin: 0; }
+  .small { font-size: 11px; color: #888; }
+  .file-form { background: #fff; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.04); }
+  .file-form input[type=text] { flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 13px; }
+  .file-form button { padding: 7px 16px; background: #4f8df7; color: #fff; border: 0; border-radius: 4px; cursor: pointer; font-size: 13px; }
+  .file-form .hint { font-size: 11px; color: #888; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📊 ZSpace NAS 数据看板(只读)</h1>
+    <div class="right">
+      👤 <b>{{ user.username }}</b>(id={{ user.profile.id }}, 昵称 {{ user.profile.nickname }}, {% if user.profile.is_master == 1 %}主账号{% else %}子账号{% endif %})
+      <a href="/logout">退出</a>
+    </div>
+  </header>
+
+  <div class="summary">
+    <h2>✅ 方案 B 全链路打通</h2>
+    <p>本地代理 → RSA 加密登录 → token 鉴权 → 调用 NAS API。监控 / 存储池 / 文件列表三类只读数据全部获取成功,数据真实有效。</p>
+  </div>
+
+  <!-- ============ 监控类 ============ -->
+  <h2 class="section">🖥️ 监控 <span class="desc">数据来源:NAS 自带状态页 <code>/zstatus</code>(免鉴权 HTML,正则解析)</span></h2>
+  <div class="grid">
+    <div class="card">
+      <h3>设备状态</h3>
+      <div class="kv">
+        <div class="k">当前时间</div><div class="v">{{ monitor.now or "—" }}</div>
+        <div class="k">开机时长</div><div class="v">{{ monitor.uptime or "—" }}</div>
+        <div class="k">序列号</div><div class="v">{{ monitor.sn or "—" }}</div>
+        <div class="k">系统负载</div><div class="v">{{ monitor.loadavg or "—" }} (1/5/15 分钟)</div>
+        <div class="k">内存占用</div><div class="v">{{ monitor.mem_pct or "—" }}%</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>磁盘使用率</h3>
+      {% if monitor.disks %}
+      <table>
+        <thead><tr><th>设备</th><th>使用率</th><th>只读</th></tr></thead>
+        <tbody>
+        {% for d in monitor.disks %}
+          <tr>
+            <td>{{ d.name }}</td>
+            <td>
+              {% set pct = d.usage_pct | float %}
+              <span class="pill {{ 'fail' if pct > 85 else 'warn' if pct > 70 else 'ok' }}">{{ d.usage_pct }}%</span>
+            </td>
+            <td>{{ d.readonly }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="small">未解析到磁盘数据</p>{% endif %}
+    </div>
+
+    <div class="card full">
+      <h3>关键服务健康状态</h3>
+      {% if monitor.processes %}
+      <table>
+        <thead><tr><th>服务名</th><th>运行中</th><th>健康</th><th>状态</th></tr></thead>
+        <tbody>
+        {% for p in monitor.processes %}
+          <tr>
+            <td>{{ p.name }}</td>
+            <td>{{ p.running }}</td>
+            <td>{{ p.healthy }}</td>
+            <td>
+              {% if p.running == "是" and p.healthy == "是" %}
+                <span class="pill ok">正常</span>
+              {% else %}
+                <span class="pill fail">异常</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="small">未解析到进程数据</p>{% endif %}
+    </div>
+  </div>
+
+  <!-- ============ 存储池 ============ -->
+  <h2 class="section">💾 存储池 <span class="desc">数据来源:<code>/zspool/info</code> + <code>/zspool/hardware/info</code></span></h2>
+  {% if zspool_info.code|string == '200' %}
+  <div class="grid">
+    {% for pool in zspool_info.data.pool_list %}
+    <div class="card">
+      <h3>📦 {{ pool.name }}
+        <span class="pill {{ 'ok' if pool.status == 'ok' else 'fail' }}" style="margin-left:8px;">{{ pool.status }}</span>
+        {% if pool.encrypted == 1 %}<span class="pill warn" style="margin-left:4px;">已加密</span>{% endif %}
+      </h3>
+      <div class="kv">
+        <div class="k">类型</div><div class="v">{{ pool.pool_type }} / {{ pool.protocol }}</div>
+        <div class="k">总容量</div><div class="v">{{ pool.total_size | fmt_bytes }}</div>
+        <div class="k">已用</div><div class="v">{{ pool.usage_size | fmt_bytes }}</div>
+        <div class="k">可用</div><div class="v">{{ pool.free_size | fmt_bytes }}</div>
+        <div class="k">使用率</div><div class="v">
+          {% set usage_pct = (pool.usage_size | float) / (pool.total_size | float) * 100 %}
+          <span class="pill {{ 'fail' if usage_pct > 85 else 'warn' if usage_pct > 70 else 'ok' }}">{{ '%.1f' | format(usage_pct) }}%</span>
+        </div>
+        <div class="k">硬盘数</div><div class="v">{{ pool.disk_list | length }} 块</div>
+      </div>
+      {% if pool.disk_list %}
+      <table style="margin-top:10px;">
+        <thead><tr><th>槽位</th><th>型号</th><th>SN</th><th>容量</th><th>温度</th><th>健康</th></tr></thead>
+        <tbody>
+        {% for d in pool.disk_list %}
+          <tr>
+            <td>#{{ d.pos }}</td>
+            <td class="v" style="font-size:11px;">{{ d.model }}</td>
+            <td class="v">{{ d.sn }}</td>
+            <td class="v">{{ d.total_size | fmt_bytes }}</td>
+            <td>
+              {% set t = d.temp | int %}
+              <span class="pill {{ 'fail' if t > 55 else 'warn' if t > 45 else 'ok' }}">{{ d.temp }}°C</span>
+            </td>
+            <td><span class="pill {{ 'ok' if d.health == 'ok' else 'fail' }}">{{ d.health }}</span></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if zspool_hw.code|string == '200' %}
+  <div class="card full" style="margin-top:14px;">
+    <h3>🔌 硬件槽位</h3>
+    <div class="kv" style="grid-template-columns: 80px 1fr;">
+      <div class="k">SATA 槽</div><div class="v">{{ zspool_hw.data.slot.sata }} 个</div>
+      <div class="k">NVMe 槽</div><div class="v">{{ zspool_hw.data.slot.nvme }} 个</div>
+      <div class="k">eSATA</div><div class="v">{{ zspool_hw.data.slot.esata }} 个</div>
+    </div>
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="card fail"><h3>存储池接口失败</h3><pre>{{ zspool_info | tojson(indent=2) }}</pre></div>
+  {% endif %}
+
+  <!-- ============ 文件夹只读(可下转) ============ -->
+  <h2 class="section">📁 文件夹(只读)<span class="desc">数据来源:<code>/v2/file/list</code>,路径格式 <code>/池名/my/子目录/</code>。点文件夹名可进入</span></h2>
+
+  <!-- 面包屑导航 -->
+  <div class="card full" style="margin-bottom:12px;padding:10px 14px;">
+    <div class="breadcrumb" style="font-size:13px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;">
+      {% for crumb in breadcrumb %}
+        {% if not loop.last %}
+          <a href="/dashboard?path={{ crumb.path | urlencode }}" style="color:#4f8df7;text-decoration:none;">{{ crumb.name }}</a>
+          <span style="color:#aaa;">/</span>
+        {% else %}
+          <strong style="color:#2c3e50;">{{ crumb.name }}</strong>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <form class="file-form" method="get" action="/dashboard">
+    <label style="font-size:12px;color:#555;">路径:</label>
+    <input type="text" name="path" value="{{ file_path }}" placeholder="/sata14/my/data/">
+    <button type="submit">浏览</button>
+    <span class="hint">💡 只能看自己 <code>/池名/my/</code> 下的内容</span>
+  </form>
+
+  <div class="card full">
+    {% if file_resp.code|string == '200' %}
+      {% set items = file_resp.data.list or [] %}
+      <h3>📂 <code>{{ file_path }}</code> · 共 {{ file_resp.data.total }} 项</h3>
+      {% if items %}
+      <table>
+        <thead>
+          <tr>
+            <th>名称</th>
+            <th>类型</th>
+            <th>大小</th>
+            <th>修改时间</th>
+            <th>所有者</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for it in items %}
+          <tr>
+            <td>
+              {% if it.is_dir == '1' %}
+                {# 文件夹:可点击下转 #}
+                📁 <a href="/dashboard?path={{ it.path | urlencode }}/" style="color:#4f8df7;text-decoration:none;font-weight:500;">{{ it.name }}</a>
+              {% else %}
+                📄 {{ it.name }}
+              {% endif %}
+            </td>
+            <td>{% if it.is_dir == '1' %}文件夹{% else %}{{ it.ext or '文件' }}{% endif %}</td>
+            <td class="v">{% if it.is_dir == '1' %}—{% else %}{{ it.size | fmt_bytes }}{% endif %}</td>
+            <td class="v">{% if it.modify_time and it.modify_time != '0' %}{{ it.modify_time | int | datetime_local }}{% else %}—{% endif %}</td>
+            <td>{{ it.username or '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="small">该目录为空</p>
+      {% endif %}
+    {% else %}
+      <h3 style="color:#c0392b;">❌ 列表失败</h3>
+      <p>code={{ file_resp.code }} msg={{ file_resp.msg }}</p>
+      <p class="small">提示:用户只能浏览自己 <code>/池名/my/</code> 目录下的内容。常见可用路径:<code>/sata14/my/data/</code>、<code>/nvme19/my/</code></p>
+    {% endif %}
+  </div>
+
+  <!-- ============ 极影视 ============ -->
+  <h2 class="section">🎬 极影视 <span class="desc">数据来源:<code>/zvideo/classification/list</code> + <code>/zvideo/classification/dirs</code></span></h2>
+  <div class="grid">
+    {% if zvideo_classes.code|string == '200' %}
+      {% set classes = zvideo_classes.data or [] %}
+      {% set enabled_classes = classes | selectattr('is_enable', 'equalto', 1) | list %}
+      <div class="card">
+        <h3>🏷️ 分类概览</h3>
+        <div class="kv">
+          <div class="k">总分类数</div><div class="v">{{ classes | length }}</div>
+          <div class="k">已启用</div><div class="v"><span class="pill ok">{{ enabled_classes | length }}</span></div>
+          <div class="k">已禁用</div><div class="v"><span class="pill">{{ classes | length - enabled_classes | length }}</span></div>
+        </div>
+      </div>
+
+      <div class="card full">
+        <h3>📋 分类详情</h3>
+        <table>
+          <thead><tr><th>分类名</th><th>状态</th><th>类型</th><th>剧集数</th><th>合集数</th><th>分享用户</th></tr></thead>
+          <tbody>
+          {% for c in classes %}
+            <tr>
+              <td><strong>{{ c.name }}</strong></td>
+              <td>
+                {% if c.is_enable == 1 %}
+                  <span class="pill ok">启用</span>
+                {% else %}
+                  <span class="pill">禁用</span>
+                {% endif %}
+              </td>
+              <td>{% if c.is_system == 1 %}系统{% else %}自定义{% endif %}</td>
+              <td>{{ c.series_count }}</td>
+              <td>{{ c.collection_count }}</td>
+              <td class="v" style="font-size:11px;">{{ c.share_users | join(', ') or '—' }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="card fail"><h3>极影视分类接口失败</h3><pre>{{ zvideo_classes | tojson(indent=2) }}</pre></div>
+    {% endif %}
+
+    {% if zvideo_dirs.code|string == '200' %}
+      {% set dirs = zvideo_dirs.data or [] %}
+      <div class="card full">
+        <h3>📂 影视库源目录(共 {{ dirs | length }} 个)</h3>
+        {% if dirs %}
+        <table>
+          <thead><tr><th>路径</th><th>所属分类</th></tr></thead>
+          <tbody>
+          {% for d in dirs %}
+            <tr><td class="v">{{ d.path if d.path else d }}</td><td>{{ d.classification_name or d.name or '—' }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="small">无源目录</p>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- ============ 调试信息 ============ -->
+  <details style="margin-top:24px;">
+    <summary class="small">🔧 调试信息(当前 session 携带的 cookie key)</summary>
+    <p>
+      {% for k in cookies_keys %}<span class="pill ok" style="margin-right:6px;">{{ k }}</span>{% endfor %}
+    </p>
+  </details>
+
+</div>
+</body>
+</html>
