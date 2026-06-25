@@ -635,7 +635,7 @@ NAS 上 `/dev/shm/*.socket` 显示以下服务在跑(全部可通过 openresty �
 | filesearchserver | filesearchserver.socket | `/file_search/*` |
 | fss | fss.socket | 文件系统服务? |
 | ledsserver | ledsserver.socket | `/local/led/*` |
-| mailbackup | mailbackup.socket | 邮件备份 |
+| mailbackup | mailbackup.socket | 邮件备份(`/var/appstore/pkg/mailbackup/`) |
 | mediaconverter | mediaconverter.socket | `/zvideo/converter/*` |
 | netdiskv2server | netdiskv2server.socket | `/znetdisk/*` |
 | storagepool | storagepool.socket | `/storagepool/*` |
@@ -655,7 +655,61 @@ NAS 上 `/dev/shm/*.socket` 显示以下服务在跑(全部可通过 openresty �
 | zonedrive | zonedrive.socket | 网盘统一 |
 | zsanmanager | zsanmanager.socket | SAN 管理 |
 
-**未启用** (没看到 socket,功能没开):zaudio(听书)、zreader(电子书)、downloader、xunlei。
+### 6.14 用户启用应用后的扩展服务(2026-06-25 启用)
+
+> 用户在 NAS UI 启用了:下载 / 有声读物 / 极阅读 / 极漫画 / 邮件备份 / FTP 备份 + 验证 webdav/smb 等。新增 socket:`downloader / zaudio / zreader / zcomic / mailbackup / ftprsync(8013 端口)` + 进程 `qbittorrent-nox / aria2c`。
+
+#### 6.14.1 下载 `/downloader/*`(实测可用)
+
+| 端点 | 用途 | 关键 body |
+|------|------|----------|
+| `/downloader/list` | 全部下载任务 | `{}` 返回 `{list[{id,type,downloadDir,totalSize,completeSize,isFinished,status,rateDownload,rateUpload,uri,...}], total, totalRateDownload, seedingTaskCount, ...}` |
+| `/downloader/share/add` | 添加分享任务 | 需参数 |
+
+实测:本机有 1 个 BT 任务(系统镜像包,3.27GB/2.93GB,~90%)。
+
+**实际下载引擎**(独立进程,有自己的 web 端口):
+- `qbittorrent-nox` 监听 `:51413`(BT 协议端口)+ webui 经 `58082_qbittorrent.conf` 反代
+- `aria2c` 进程在跑(配置 `/zspace/zsrp/downloader/aria2/conf/aria2c.conf`)
+- `xunlei` 在 `/xunlei/`(127.0.0.1:5052)
+
+#### 6.14.2 SMB / WebDAV / FTP / DLNA 状态 `/api/fileshare_service/*`
+
+**全部 200 直通(POST 空 body,GET 返回空字典!)**:
+
+| 端点 | 实测数据 |
+|------|---------|
+| `/api/fileshare_service/samba/status` | `{audit, guest, host_name, ios_support, mc, ntlm, size, status, tiny_file}` —— 本机 status=true,host=Z4Pro-NY4H |
+| `/api/fileshare_service/webdav/status` | `{http_port, https_port, status}` —— 本机 status=true,http_port=5005,https_port=5006 |
+| `/api/fileshare_service/ftp/status` | `{exits, guest, passive, passive_ip, passive_port_start/end, port, status}` —— 本机 status=false(未启),port=21,passive 40000-45000 |
+| `/api/fileshare_service/dlna/status` | `{is_share, status}` —— 本机 status=false |
+| `/api/fileshare_service/tm/status` | Time Machine 状态(参数错) |
+
+⚠️ **GET 返回空 dict**,**POST `{}` 才返真数据**。
+
+**配置类端点报"服务端参数错误"**(需要具体 body):`samba/config`, `samba/mapping/list`, `webdav/config`, `ftp/config/guest`, `dlna/dir` 等。
+
+#### 6.14.3 启用了但端点未明的服务
+
+| 服务 | 状态 |
+|------|------|
+| `zaudio` 有声读物 | socket 活,但常见路径(`/api/v2/*`, `/book/list`)全 404,需 JS 深挖 |
+| `zreader` 极阅读 | 同上,java 实现(jar 包 `/var/appstore/pkg/bookLib/zreader`),独立端口 8029 |
+| `zcomic` 极漫画 | 同上,独立 socket |
+| `mailbackup` 邮件备份 | socket 活,进程 mailmanager 监听 9998,需 NAS UI 抓包确定 API |
+| `ftprsync` FTP 备份 | 进程在 8013,常见路径返回 HTML 目录列表样式 |
+
+#### 6.14.4 AI Lab(发现新大陆!)
+
+`zcomic.conf` 里发现 NAS 有 **AI Lab 功能**(本地 LLM):
+
+| 路径 | 后端 | 用途 |
+|------|------|------|
+| `/AiLab/*` | `deepseekmgr.socket` | DeepSeek 模型管理 |
+| `/AiLabApi/Llamas/*` | `127.0.0.1:45463` | LLaMA 模型服务 |
+| `/AppCenter/*` | `onlyofficemgr.socket` | OnlyOffice 应用中心 |
+
+⚠️ 实测全部 502(后端没起,需要单独启用 AI Lab 功能)。这是一个**未被官方宣传的隐藏 AI 能力**,如果启用,理论上可以本地跑 LLM 对话。
 
 ---
 
