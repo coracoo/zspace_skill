@@ -452,9 +452,51 @@ Content-Type: application/octet-stream
 | `/v2/album/album/create` / `delete` / `change` | 相册 CRUD | 写 |
 | `/v2/album/album/feed/add` / `delete` / `move` | 相册内照片管理 | 写 |
 | `/v2/album/album/comments/*` | 相册评论 |  |
-| `/v2/album/ai/*` | AI 功能(人脸/宠物/OCR) | 进度查询等,需参数 |
+| `/v2/album/ai/*` | AI 功能(人脸/宠物/OCR) | 见 6.7.1 |
 | `/v2/album/ilikelist` | 我喜欢的 | (路径可能不对,404) |
 | `/v2/album/share` / `nasshare` | 相册分享 |  |
+
+#### 6.7.1 AI 子模块 `/v2/album/ai/*`(23 个端点,实测可用)
+
+> 极空间相册 AI 功能很完整:人脸识别 / 宠物识别 / 场景识别 / OCR / 自动剪辑 / "今日回忆"配乐。
+> 实测当前 NAS 状态:`face_total=2`、`pet_face_total=17364`、`scene_total=2`,识别到的人脸有用户命名(如 "温柔岁月")。
+
+**✅ 只读 / 200 直通**:
+
+| 端点 | 用途 | 实测返回字段 |
+|------|------|--------------|
+| `/v2/album/ai/state` | AI 整体状态 | `{state, faced, face_total, scene_total, clip_total, pet_total, pet_face_total, updated_at, open}` |
+| `/v2/album/ai/taskManager` | 任务管理器 | `{aiDurationList, currentTask, lastTaskEvent, typeMap}`;`typeMap` 列出任务类型:`clip/face/ocr/pet/scene/system` |
+| `/v2/album/ai/taskEventList` | 任务事件流水(实测 1000 项) | `[{userName, taskName, remark, eventId, eventTime}]` |
+| `/v2/album/ai/history/today` | 今日回忆(配音乐) | `{persons, group, addr, desc, music}`;`desc.persons` 是识别出的人脸名,`music` 是配乐 URL |
+| `/v2/album/ai/cluster_detect/options` | 聚类灵敏度 | `[{desc:"普通",value:0.54}, {desc:"增强",0.57}, {desc:"超级增强",0.59}]` |
+| `/v2/album/ai/picking/menu_bar` | AI 挑选菜单 | `[{name:"整体评分",type:9}, {name:"人像挑选",1}, {name:"景物图片",10}, {name:"疑似瑕疵",11}]` |
+| `/v2/album/ai/picking/task/status` | 当前挑选任务状态 | `{id, type, status, total, processed, remaining, msg}`;status=4 表示 cancelled |
+
+**⚠️ 端点存在,需参数(字段名待抓包)**:
+
+- `/v2/album/ai/progress` — 进度查询(`type` 字段不对,需抓包)
+- `/v2/album/ai/ocr/search` — OCR 文字搜索(`keyword/kw/q/word` 都不是)
+- `/v2/album/ai/picking/result` — 挑选结果(需 task_id)
+- `/v2/album/ai/history/today/persons/not_display` — 不显示的人物列表
+
+**⚠️ 业务空闲(端点对,当前没任务)**:`clean/status` / `pet/clean/status` / `rescene/status` 都返回 `N003588 暂无清理任务`
+
+**🔴 写操作(空 body 看校验,不实际触发)**:
+
+- `/v2/album/ai/clean` / `pet/clean` — 触发清理(截图去重等)
+- `/v2/album/ai/recluster` — 重新聚类人脸
+- `/v2/album/ai/rescene` — 重新场景化
+- `/v2/album/ai/run` / `run/now` — 触发 AI 跑
+- `/v2/album/ai/picking/task/create` / `cancel` / `completed` — 挑选任务 CRUD
+
+**typeMap 数字编码**(从 taskManager 拿到):
+- `clip` → 140(自动剪辑)
+- `face` → 100 / 1000(人脸识别,可能 100=检测,1000=聚类)
+- `ocr` → 1200(图片文字识别)
+- `pet` → 150(宠物识别)
+- `scene` → 110(场景识别)
+- `system` → [](系统任务)
 
 ### 6.8 Web Office `/v2/weboffic/*` + `/v2/onlyoffice/*`
 
