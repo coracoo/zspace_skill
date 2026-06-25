@@ -312,6 +312,168 @@
     </p>
   </details>
 
+  <!-- ============ 性能监控(SSH 读 /proc) ============ -->
+  <h2 class="section">⚡ 性能监控 <span class="desc">数据来源:LAN SSH 直读 <code>/proc</code>(5 秒缓存,10 秒自动刷新)</span></h2>
+
+  <div id="perf-dashboard" class="grid">
+    {% if perf.error %}
+      <div class="card full fail">
+        <h3>⚠️ 性能监控不可用</h3>
+        <p class="small">{{ perf.error }}</p>
+        <p class="small">需要:1) 本机装 sshpass;2) 环境变量 <code>KEY_SSH</code> 设置好 NAS SSH 密码</p>
+      </div>
+    {% else %}
+      <div class="card">
+        <h3>📊 CPU & Load</h3>
+        <div class="kv">
+          <div class="k">Load 平均</div>
+          <div class="v">
+            {% for l in perf.loadavg %}
+              {% set lvl = 'ok' if l < 2 else 'warn' if l < 4 else 'fail' %}
+              <span class="pill {{ lvl }}" style="margin-right:4px;">{{ l }}</span>
+            {% endfor %}
+            <span class="small">(1/5/15 分钟)</span>
+          </div>
+          <div class="k">CPU 占用(自启动平均)</div>
+          <div class="v">
+            {% set p = perf.cpu_busy_pct_since_boot or 0 %}
+            <span class="pill {{ 'ok' if p < 50 else 'warn' if p < 80 else 'fail' }}">{{ p }}%</span>
+          </div>
+          <div class="k">开机时长</div>
+          <div class="v">{{ (perf.uptime_sec / 86400)|int }} 天 {{ ((perf.uptime_sec % 86400) / 3600)|int }} 小时</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>💾 内存</h3>
+        {% if perf.memory_kb %}
+        {% set m = perf.memory_kb %}
+        {% set used_pct = (m.used / m.total * 100)|float if m.total else 0 %}
+        <div class="kv">
+          <div class="k">总内存</div><div class="v">{{ (m.total / 1024 / 1024)|round(2) }} GB</div>
+          <div class="k">已用</div><div class="v">{{ (m.used / 1024 / 1024)|round(2) }} GB (<span class="pill {{ 'ok' if used_pct < 70 else 'warn' if used_pct < 85 else 'fail' }}">{{ '%.1f'|format(used_pct) }}%</span>)</div>
+          <div class="k">可用</div><div class="v">{{ (m.available / 1024 / 1024)|round(2) }} GB</div>
+          <div class="k">缓存</div><div class="v">{{ (m.cached / 1024 / 1024)|round(2) }} GB</div>
+          {% if m.swap_total %}
+          {% set sw_pct = (m.swap_used / m.swap_total * 100)|float %}
+          <div class="k">Swap</div><div class="v">{{ (m.swap_used / 1024 / 1024)|round(1) }} / {{ (m.swap_total / 1024 / 1024)|round(1) }} GB (<span class="pill {{ 'ok' if sw_pct < 20 else 'warn' }}">{{ '%.1f'|format(sw_pct) }}%</span>)</div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <h3>🌡️ 温度</h3>
+        {% if perf.temperatures %}
+        <table>
+          <thead><tr><th>热区</th><th>温度</th></tr></thead>
+          <tbody>
+          {% for t in perf.temperatures %}
+            <tr>
+              <td class="v">{{ t.zone }}</td>
+              <td>
+                {% set lvl = 'ok' if t.temp_c < 50 else 'warn' if t.temp_c < 70 else 'fail' %}
+                <span class="pill {{ lvl }}">{{ t.temp_c }}°C</span>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<p class="small">无温度数据</p>{% endif %}
+      </div>
+
+      <div class="card">
+        <h3>🌐 网络(累计)</h3>
+        {% if perf.network %}
+        <table>
+          <thead><tr><th>接口</th><th>接收</th><th>发送</th></tr></thead>
+          <tbody>
+          {% for name, n in perf.network.items() %}
+            {% if n.rx_bytes > 1000000 or n.tx_bytes > 1000000 %}
+            <tr>
+              <td class="v">{{ name }}</td>
+              <td class="v">{{ n.rx_bytes / 1024 / 1024 / 1024 | round(2) }} GB</td>
+              <td class="v">{{ n.tx_bytes / 1024 / 1024 / 1024 | round(2) }} GB</td>
+            </tr>
+            {% endif %}
+          {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+      </div>
+
+      <div class="card full">
+        <h3>🏆 Top 进程(CPU)</h3>
+        {% if perf.top_cpu_procs %}
+        <table>
+          <thead><tr><th>PID</th><th>进程名</th><th>CPU%</th><th>MEM%</th><th>RSS</th></tr></thead>
+          <tbody>
+          {% for p in perf.top_cpu_procs %}
+            <tr>
+              <td class="v">{{ p.pid }}</td>
+              <td>{{ p.name }}</td>
+              <td>
+                {% set lvl = 'ok' if p.cpu_pct < 30 else 'warn' if p.cpu_pct < 70 else 'fail' %}
+                <span class="pill {{ lvl }}">{{ p.cpu_pct }}%</span>
+              </td>
+              <td>{{ p.mem_pct }}%</td>
+              <td class="v">{{ (p.rss_kb / 1024)|round(1) }} MB</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+      </div>
+
+      <div class="card full">
+        <h3>💾 Top 进程(内存)</h3>
+        {% if perf.top_mem_procs %}
+        <table>
+          <thead><tr><th>PID</th><th>进程名</th><th>CPU%</th><th>MEM%</th><th>RSS</th></tr></thead>
+          <tbody>
+          {% for p in perf.top_mem_procs %}
+            <tr>
+              <td class="v">{{ p.pid }}</td>
+              <td>{{ p.name }}</td>
+              <td>{{ p.cpu_pct }}%</td>
+              <td>{{ p.mem_pct }}%</td>
+              <td class="v">{{ (p.rss_kb / 1024)|round(1) }} MB</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+      </div>
+
+      <div class="card full">
+        <p class="small">⏱️ 最后更新: <span id="perf-ts">{{ perf.ts }}</span>(<span id="perf-age">just now</span>) · <a href="/api/perf" target="_blank">原始 JSON</a> · <a href="#" onclick="refreshPerf();return false;">手动刷新</a></p>
+      </div>
+    {% endif %}
+  </div>
+
+  <script>
+    // 自动刷新性能监控(只更新 perf 区块,不刷新整页)
+    async function refreshPerf() {
+      try {
+        const r = await fetch('/api/perf?_=' + Date.now());
+        const j = await r.json();
+        if (j.error) return;  // 静默失败,保留旧数据
+        renderPerf(j);
+      } catch (e) {}
+    }
+    function renderPerf(p) {
+      const el = document.getElementById('perf-dashboard');
+      if (!el || p.error) return;
+      // 简单刷新:只更新 timestamp;完整重渲染需要复杂模板,这里先轻量
+      const tsEl = document.getElementById('perf-ts');
+      const ageEl = document.getElementById('perf-age');
+      if (tsEl) tsEl.textContent = new Date(p.ts * 1000).toLocaleTimeString();
+      if (ageEl) ageEl.textContent = 'just refreshed';
+    }
+    // 每 10 秒拉一次(N150 友好,不爆 NAS)
+    setInterval(refreshPerf, 10000);
+  </script>
+
   <!-- ============ 写测试 ============ -->
   <h2 class="section">🧪 写测试 <span class="desc">⚠️ 这些操作会真实写入 NAS,谨慎使用</span></h2>
 

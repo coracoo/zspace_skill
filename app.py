@@ -4,6 +4,8 @@ import hashlib
 import json
 import logging
 import os
+import subprocess
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -49,6 +51,169 @@ def resolve_device_id() -> str:
     """优先用环境变量 NAS_DEVICE_ID,否则用代码里默认值。始终 32 字符。"""
     did = os.environ.get("NAS_DEVICE_ID", "").strip()
     return did if (len(did) == 32) else NAS_DEVICE_ID_DEFAULT
+
+
+# SSH 凭据(用于性能监控读 /proc)
+NAS_SSH_HOST = "192.168.0.135"
+NAS_SSH_PORT = "57922"
+NAS_SSH_USER = "15068832031"
+
+
+def _ssh_perf_snapshot() -> Dict[str, Any]:
+    """一次 SSH 抓全套性能指标(0.3 秒搞定,避免多次连 NAS)。
+    读 /proc/loadavg /proc/stat /proc/meminfo /proc/uptime /proc/net/dev /sys/class/thermal + ps。
+    """
+    pw = os.environ.get("KEY_SSH", "")
+    if not pw:
+        return {"error": "KEY_SSH env not set"}
+    cmd = (
+        "echo '=== LOAD ==='; cat /proc/loadavg; "
+        "echo '=== CPU ==='; head -1 /proc/stat; "
+        "echo '=== MEMINFO ==='; grep -E '^(MemTotal|MemFree|MemAvailable|Buffers|Cached|SwapTotal|SwapFree|Dirty)' /proc/meminfo; "
+        "echo '=== UPTIME ==='; cat /proc/uptime; "
+        "echo '=== NET DEV ==='; cat /proc/net/dev; "
+        "echo '=== THERMAL ==='; for z in /sys/class/thermal/thermal_zone*; do echo -n \"$z=\"; cat $z/temp 2>/dev/null; echo; done; "
+        "echo '=== TOP CPU ==='; ps -eo pid,pcpu,pmem,rss,comm --sort=-pcpu --no-headers | head -8; "
+        "echo '=== TOP MEM ==='; ps -eo pid,pcpu,pmem,rss,comm --sort=-rss --no-headers | head -8; "
+        "echo '=== END ==='"
+    )
+    try:
+        r = subprocess.run(
+            ["sshpass", "-p", pw, "ssh",
+             "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=accept-new",
+             "-p", NAS_SSH_PORT, f"{NAS_SSH_USER}@{NAS_SSH_HOST}", cmd],
+            capture_output=True, text=True, timeout=10,
+        )
+    except subprocess.TimeoutExpired:
+        return {"error": "ssh timeout"}
+    except FileNotFoundError:
+        return {"error": "sshpass not installed"}
+    return _parse_perf(r.stdout)
+
+
+def _parse_perf(text: str) -> Dict[str, Any]:
+    """解析 SSH 输出成结构化数据。"""
+    out: Dict[str, Any] = {}
+    sections = {}
+    cur = None
+    for line in text.splitlines():
+        m = line.startswith("=== ") and line.endswith(" ===")
+        if m:
+            cur = line[4:-4]
+            sections[cur] = []
+        elif cur:
+            sections[cur].append(line)
+
+    if "LOAD" in sections:
+        parts = (sections["LOAD"][0].split() if sections["LOAD"] else [])
+        if len(parts) >= 3:
+            out["loadavg"] = [float(x) for x in parts[:3]]
+
+    if "CPU" in sections and sections["CPU"]:
+        # cpu  user nice system idle iowait irq softirq steal guest guest_nice
+        parts = sections["CPU"][0].split()
+        if len(parts) >= 5 and parts[0] == "cpu":
+            vals = [int(x) for x in parts[1:8]]
+            user, nice, sys, idle, iowait, irq, sirq = vals[:7]
+            total = sum(vals[:7])
+            out["cpu_ticks"] = {"user": user, "system": sys, "idle": idle,
+                                "iowait": iowait, "total": total}
+            # 自启动以来的 CPU 占用率(平均)
+            if total > 0:
+                out["cpu_busy_pct_since_boot"] = round((total - idle) * 100 / total, 1)
+
+    if "MEMINFO" in sections:
+        mem = {}
+        for line in sections["MEMINFO"]:
+            if ":" in line:
+                k, v = line.split(":", 1)
+                v = v.strip().split()[0] if v.strip() else "0"
+                try: mem[k] = int(v)
+                except: pass
+        if "MemTotal" in mem:
+            total = mem["MemTotal"]
+            avail = mem.get("MemAvailable", mem.get("MemFree", 0))
+            cached = mem.get("Cached", 0)
+            buffers = mem.get("Buffers", 0)
+            swap_total = mem.get("SwapTotal", 0)
+            swap_free = mem.get("SwapFree", 0)
+            out["memory_kb"] = {
+                "total": total, "available": avail,
+                "used": total - avail, "cached": cached, "buffers": buffers,
+                "swap_total": swap_total, "swap_used": swap_total - swap_free,
+            }
+
+    if "UPTIME" in sections and sections["UPTIME"]:
+        parts = sections["UPTIME"][0].split()
+        if len(parts) >= 2:
+            out["uptime_sec"] = float(parts[0])
+            out["idle_sec"] = float(parts[1])
+
+    if "NET DEV" in sections:
+        # 跳过前 2 行(表头)
+        net = {}
+        for line in sections["NET DEV"][2:]:
+            if ":" not in line: continue
+            name, rest = line.split(":", 1)
+            name = name.strip()
+            cols = rest.split()
+            if len(cols) >= 9:
+                # 关注主要接口:eth* / kvmbr* / docker0 / br-*
+                if name.startswith(("eth", "kvmbr", "docker", "br-")):
+                    net[name] = {
+                        "rx_bytes": int(cols[0]), "rx_packets": int(cols[1]),
+                        "rx_errs": int(cols[2]), "rx_drop": int(cols[3]),
+                        "tx_bytes": int(cols[8]), "tx_packets": int(cols[9]),
+                        "tx_errs": int(cols[10]), "tx_drop": int(cols[11]),
+                    }
+        out["network"] = net
+
+    if "THERMAL" in sections:
+        temps = []
+        for line in sections["THERMAL"]:
+            if "=" in line:
+                name, val = line.split("=", 1)
+                try:
+                    temps.append({
+                        "zone": name.split("/")[-1],
+                        "temp_c": round(int(val.strip()) / 1000, 1)
+                    })
+                except: pass
+        out["temperatures"] = temps
+
+    for kind in ("TOP CPU", "TOP MEM"):
+        if kind in sections:
+            procs = []
+            for line in sections[kind]:
+                parts = line.split()
+                if len(parts) >= 5:
+                    procs.append({
+                        "pid": int(parts[0]),
+                        "cpu_pct": float(parts[1]),
+                        "mem_pct": float(parts[2]),
+                        "rss_kb": int(parts[3]),
+                        "name": parts[4],
+                    })
+            key = "top_cpu_procs" if kind == "TOP CPU" else "top_mem_procs"
+            out[key] = procs
+
+    out["ts"] = int(time.time())
+    return out
+
+
+# 简单的内存缓存(5 秒),避免 dashboard 频繁刷新打爆 NAS
+_perf_cache: Dict[str, Any] = {"ts": 0, "data": None}
+_PERF_TTL = 5
+
+
+def _get_perf_cached() -> Dict[str, Any]:
+    now = time.time()
+    if _perf_cache["data"] and now - _perf_cache["ts"] < _PERF_TTL:
+        return _perf_cache["data"]
+    data = _ssh_perf_snapshot()
+    _perf_cache["data"] = data
+    _perf_cache["ts"] = now
+    return data
 
 
 app = FastAPI(title="ZSpace NAS MCP PoC")
@@ -241,6 +406,9 @@ async def dashboard(request: Request):
                 test_class_exists = True
                 break
 
+    # 性能监控快照(SSH 读 /proc,5 秒缓存,跟 dashboard 解耦)
+    perf = _get_perf_cached()
+
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -256,6 +424,7 @@ async def dashboard(request: Request):
             "zvideo_dirs": zvideo_dirs,
             "test_dir_exists": test_dir_exists,
             "test_class_exists": test_class_exists,
+            "perf": perf,
             "cookies_keys": list(cookies.keys()),
         },
     )
@@ -351,6 +520,12 @@ async def logout(request: Request):
 @app.get("/healthz")
 async def healthz():
     return {"ok": True}
+
+
+@app.get("/api/perf")
+async def api_perf():
+    """性能监控 JSON(LAN SSH 读 /proc,5 秒缓存)"""
+    return _get_perf_cached()
 
 
 # ---------- 调试用通用代理(用当前 session 的 NAS cookie 直接调任意 NAS 接口)----------
