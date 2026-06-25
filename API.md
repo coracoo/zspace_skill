@@ -586,6 +586,77 @@ Content-Type: application/octet-stream
 - `/v2/captcha/` — 验证码
 - `/v2/tob/share/config/get` — 不明
 
+### 6.10 极音乐 `/zmusic/api/v2/*`(zmusicv2 后端,unix socket)
+
+| 端点 | 用途 | 状态 |
+|------|------|------|
+| `/zmusic/api/v2/song/list` | 全部歌曲列表 | ✅ 实测 **4549 首**,每首含 song_id/title/artist/album/cover/duration/size 等 15+ 字段,以 FLAC/DSF 高保真格式为主 |
+| `/zmusic/api/v2/song/file/share` | 分享歌曲 | 需参数(400) |
+| `/zmusic/api/v2/setting` | 设置 | 需参数(400) |
+| `/zmusic/api/v2/album/*` `/artist/*` `/playlist/*` `/favorite` `/recent` | 其他常见音乐端点 | ❌ 404,可能 v2 API 表面就这么窄,或藏在子路径 |
+
+**实测单首歌字段**:
+```
+song_id, song_name (文件名), song_title, artist, artist_list[{artist_id, name, profile}],
+album, album_id, album_artist, song_cover, song_date, song_genre,
+song_disc, song_track, song_size, song_duration
+```
+
+### 6.11 下载 `/downloader/*` + `/xunlei/*` 等(后端按需启)
+
+⚠️ **当前用户没启用下载功能,所有路径 502**(unix socket 文件不存在)。
+
+| 路径前缀 | 后端 | 备注 |
+|---------|------|------|
+| `/downloader/` | downloader.socket | openresty 转发到 unix socket,502 fallback 到 127.0.0.1:8001 |
+| `/xunlei/` | 127.0.0.1:5052 | 迅雷下载 |
+| qbittorrent | 58082(openresty `58082_qbittorrent.conf`) | BT 下载 |
+| aria2 / transmission | 单独服务 | 按需启 |
+
+要启用,需要在 NAS UI 里开启对应下载服务,socket 才会被创建。
+
+### 6.12 网盘 `/znetdisk/*` + `/zonedrive/*`
+
+| 端点 | 用途 | 状态 |
+|------|------|------|
+| `/znetdisk/` `/znetdisk/list` | 百度网盘 | ⚠️ `N001013 百度网盘未登录!`(集成存在,需要在 NAS UI 登录百度网盘账号) |
+| `/znetdisk1/` | 127.0.0.1:8026 | 第二个网盘后端 |
+| `/netdisk/` `/netdisk/ws` | 127.0.0.1:5300 | 网盘 WebSocket |
+| `/zonedrive/` | zonedrive.socket(unix socket,实测活跃) | 网盘统一接口,但 `/list` `/info` 等子路径 404,需要抓包确定路径 |
+
+### 6.13 其他活跃后端(从 unix socket 列表确认)
+
+NAS 上 `/dev/shm/*.socket` 显示以下服务在跑(全部可通过 openresty 反代):
+
+| 服务 | socket | 推测端点前缀 |
+|------|--------|--------------|
+| appstore | appstore.socket | `/appstore/*` |
+| filerescue | filerescue.socket | 文件救援 |
+| filesearchserver | filesearchserver.socket | `/file_search/*` |
+| fss | fss.socket | 文件系统服务? |
+| ledsserver | ledsserver.socket | `/local/led/*` |
+| mailbackup | mailbackup.socket | 邮件备份 |
+| mediaconverter | mediaconverter.socket | `/zvideo/converter/*` |
+| netdiskv2server | netdiskv2server.socket | `/znetdisk/*` |
+| storagepool | storagepool.socket | `/storagepool/*` |
+| transcode | transcode.socket | `/transcode/*` |
+| upgrader | upgrader.socket | `/upgrader/*` |
+| wxrobot | wxrobot.socket | 微信机器人(备份?) |
+| zalbumv2 | zalbumv2.socket | `/v2/album/*` |
+| zbakcenter / zbakv2 | 同名 socket | 备份中心 |
+| zbasic | zbasic.socket | 基础服务 |
+| zdocker | zdocker.socket | Docker 管理 |
+| zdrive | zdrive.socket | 极空间云盘 |
+| zfamily | zfamily.socket | 家庭相册分享 |
+| zfilev2 | zfilev2.socket | `/v2/file/*` |
+| zfirewall | zfirewall.socket | 防火墙 |
+| zflash | zflash.socket | 闪存? |
+| zmusicv2 | zmusicv2.socket | `/zmusic/*` |
+| zonedrive | zonedrive.socket | 网盘统一 |
+| zsanmanager | zsanmanager.socket | SAN 管理 |
+
+**未启用** (没看到 socket,功能没开):zaudio(听书)、zreader(电子书)、downloader、xunlei。
+
 ---
 
 ## 7. 文件搜索 `/file_search/*`
