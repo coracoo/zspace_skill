@@ -373,6 +373,29 @@ Content-Type: application/octet-stream
 
 ⚠️ 影片明细接口参数没完全摸清,实测 `series/list` 带 `classification_id` 返回了 `count` 但 `list` 是空 —— 可能还需要 `start`/`num` + 某个 type 字段。需要时再深挖。
 
+### 5.3 影视发现 / 浏览类(实测 2026-06-25 新增)
+
+| 端点 | 用途 | 实测 |
+|------|------|------|
+| `/zvideo/home/collection/latest` | **最新入库合集**(首页"最新") | ✅ list[20],字段 `{title, classification_id/name, collection_id, cover, backdrop, logo, release_year, score, type, extend_type}` |
+| `/zvideo/home/collection/suggested` | **推荐合集**(首页"推荐") | ✅ list[20],字段同上 |
+| `/zvideo/home/share/collection/latest` | 分享合集 | ✅ list[0](未分享) |
+| `/zvideo/video/randomlist` | **随机推荐** | ✅ list[12],实测本机有"哈里·布朗/小妇人/老友记"等 |
+| `/zvideo/video/v2/lately` | 最近观看 | ✅ `{add_task, count, list}` |
+| `/zvideo/video/v2/playlist` | 播放列表 | ✅ `{count, list}` |
+| `/zvideo/favorite/list` | 我的收藏 | ✅ `{count, list}` |
+| `/zvideo/collection/filter` | 类型/地区过滤选项 | ✅ `{genres[22], regions, system}`(类型: 剧情/喜剧/...) |
+| `/zvideo/skip/task/list` | 片头/片尾跳过任务 | ✅ `{count, list, processed, running, success}` |
+| `/zvideo/task/cron/info` | 定时任务配置 | ✅ `{enable, is_cron, task_id, timer:"01:00"}` |
+| `/zvideo/emby/user/status` | Emby 用户状态 | 需 `username` |
+
+> **影片数据样例**(实测当前 NAS):
+> - 哈里·布朗 (2009) 7.2 / 高压电 (2003) 6.7 / 小妇人 (1994) 7.3
+> - 自由之声 (2023) 8.0 / 千谎百计 S1 (2009) 8.0
+> - 老友记 S4 (1997) **8.9** / 维京传奇 S5 (2017) 7.9
+>
+> 这些端点直通可用,做 MCP `mcp_zspace_movie_recommend` / `mcp_zspace_movie_latest` 很合适。
+
 ---
 
 ## 6. 其他 `/v2/*` 端点(系统扫描发现)
@@ -406,7 +429,26 @@ Content-Type: application/octet-stream
 |------|------|------|
 | `/v2/recent/list` | 最近访问的文件(实测 992 项) | ✅ `{}` 返回 `{total, list[{name, path, ...}]}` |
 | `/v2/recent/new` | 待测 | N001411 无权限(可能有特殊要求) |
-| `/v2/recent/remove` | 清除记录 | 待测 |
+| `/v2/recent/remove` | 清除记录 | ✅ 200(写操作) |
+
+### 6.3.1 跨设备备份 `/v2/crossdevice/backup/*`
+
+| 端点 | 用途 | 备注 |
+|------|------|------|
+| `/v2/crossdevice/backup/list` | 跨设备备份列表 | ✅ `{list, total}`(本机为空) |
+| `/v2/crossdevice/backup/add` / `delete` / `update` / `start` | 备份任务 CRUD | 写 |
+
+### 6.3.2 笔记 `/v2/file/notepad/*`(需要"保险箱"开启)
+
+⚠️ 实测返回 `N001603 保险箱未打开`。用户需要在 NAS UI 里启用保险箱功能。
+
+| 端点 | 用途 |
+|------|------|
+| `/v2/file/notepad/list` | 笔记列表 |
+| `/v2/file/notepad/info` / `new` / `modify` / `delete` | CRUD |
+| `/v2/file/notepad/classifylist` / `newclassify` / `deleteclassify` | 分类管理 |
+| `/v2/file/notepad/historylist` / `historyinfo` | 历史版本 |
+| `/v2/file/notepad/getconfig` | 配置 |
 
 ### 6.4 用户/权限 `/v2/public/*`(多账号/子账号管理)
 
