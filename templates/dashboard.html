@@ -383,6 +383,67 @@
         </div>
       </form>
     </div>
+
+    <!-- /v2/file/info 详情 -->
+    <div class="card full">
+      <h3>🔍 文件详情(<code>POST /v2/file/info</code>)<span class="pill ok" style="margin-left:8px;">只读</span></h3>
+      <div id="info-result" class="small" style="margin-bottom:10px;color:#666;">字段:<code>path</code></div>
+      <form id="info-form" onsubmit="return submitForm(event, 'info', '/action/info');" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+        <div><label class="small">路径 path</label>
+        <input type="text" name="path" value="/sata14/my/data/备份/test" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+        <button type="submit" style="padding:7px 16px;background:#3498db;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">查询</button>
+      </form>
+    </div>
+
+    <!-- /v2/file/modify 改名 -->
+    <div class="card full">
+      <h3>✏️ 改名(<code>POST /v2/file/modify</code>)</h3>
+      <div id="rename-result" class="small" style="margin-bottom:10px;color:#666;">字段:<code>path</code> + <code>newname</code>(注意不是 name/rename)</div>
+      <form id="rename-form" onsubmit="return submitForm(event, 'rename', '/action/rename');" style="display:grid;grid-template-columns:1fr 200px auto;gap:8px;align-items:end;">
+        <div><label class="small">原路径 path</label>
+        <input type="text" name="path" value="/sata14/my/data/备份/api_test_1782350719/tmp_subdir" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+        <div><label class="small">新名 newname</label>
+        <input type="text" name="newname" value="tmp_renamed" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+        <button type="submit" style="padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 改名</button>
+      </form>
+    </div>
+
+    <!-- /v2/file/move 移动 -->
+    <div class="card full">
+      <h3>📦 移动(<code>POST /v2/file/move</code>)</h3>
+      <div id="move-result" class="small" style="margin-bottom:10px;color:#666;">字段:<code>paths[]</code>(逗号分隔多个) + <code>to</code>(目标目录,必须存在)</div>
+      <form id="move-form" onsubmit="return submitFormConfirm(event, 'move', '/action/move', '确认移动?');" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;">
+        <div><label class="small">源 paths(多个用逗号)</label>
+        <input type="text" name="paths" value="/sata14/my/data/备份/api_test_1782350719/tmp_b" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+        <div><label class="small">目标目录 to</label>
+        <input type="text" name="to" value="/sata14/my/data/备份/api_test_1782350719" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+        <button type="submit" style="padding:7px 16px;background:#e74c3c;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 移动</button>
+      </form>
+    </div>
+
+    <!-- /v2/file/copy 复制 -->
+    <div class="card full">
+      <h3>📋 复制(<code>POST /v2/file/copy</code>)</h3>
+      <div id="copy-result" class="small" style="margin-bottom:10px;color:#666;">字段:<code>paths[]</code> + <code>to</code></div>
+      <form id="copy-form" onsubmit="return submitForm(event, 'copy', '/action/copy');" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;">
+        <div><label class="small">源 paths</label>
+        <input type="text" name="paths" value="/sata14/my/data/备份/api_test_1782350719/tmp_b" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+        <div><label class="small">目标目录 to</label>
+        <input type="text" name="to" value="/sata14/my/data/备份/api_test_1782350719" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+        <button type="submit" style="padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 复制</button>
+      </form>
+    </div>
+
+    <!-- /v2/file/remove 删除 -->
+    <div class="card full">
+      <h3>🗑️ 删除(<code>POST /v2/file/remove</code>)<span class="pill fail" style="margin-left:8px;">危险</span></h3>
+      <div id="remove-result" class="small" style="margin-bottom:10px;color:#666;">字段:<code>paths[]</code>(端点名是 remove 不是 delete)。<strong>真实删除,不进回收站</strong></div>
+      <form id="remove-form" onsubmit="return submitFormConfirm(event, 'remove', '/action/remove', '⚠️ 确认删除?此操作不可逆,且不进回收站');" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+        <div><label class="small">要删的路径(多个用逗号)</label>
+        <input type="text" name="paths" value="/sata14/my/data/备份/api_test_1782350719/tmp_b" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+        <button type="submit" style="padding:7px 16px;background:#c0392b;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️⚠️ 删除</button>
+      </form>
+    </div>
   </div>
 
   <script>
@@ -440,7 +501,7 @@
         const r = await fetch('/action/link-folder', {method: 'POST', body: data});
         const j = await r.json();
         const code = String(j.code);
-        const ok = code === '200' || code === 'N120019';  // N120019 = 已关联,也算成功
+        const ok = code === '200' || code === 'N120019';
         result.innerHTML = (ok ? '<span class="pill ok">✓ code=' + code + '</span>' : '<span class="pill fail">✗ code=' + code + '</span>')
           + ' msg=' + (j.msg || '') + '<pre style="margin-top:8px;background:#f7f7f9;padding:8px;border-radius:4px;font-size:11px;max-height:200px;overflow:auto;">' + JSON.stringify(j, null, 2).replace(/</g,'&lt;') + '</pre>';
       } catch (err) {
@@ -449,6 +510,35 @@
         btn.disabled = false; btn.textContent = '⚠️ 执行写入';
       }
       return false;
+    }
+    // 通用 form 提交,适用于 info / rename / move / copy / remove
+    async function submitForm(e, kind, url) {
+      e.preventDefault();
+      const form = e.target;
+      const data = new FormData(form);
+      const result = document.getElementById(kind + '-result');
+      const btn = form.querySelector('button');
+      const origText = btn.textContent;
+      btn.disabled = true; btn.textContent = '执行中...';
+      result.innerHTML = '<span class="pill">⏳ 调用 NAS API...</span>';
+      try {
+        const r = await fetch(url, {method: 'POST', body: data});
+        const j = await r.json();
+        const code = String(j.code || j._status || '?');
+        const ok = code === '200';
+        result.innerHTML = (ok ? '<span class="pill ok">✓ code=' + code + '</span>' : '<span class="pill fail">✗ code=' + code + '</span>')
+          + ' msg=' + (j.msg || '') + '<pre style="margin-top:8px;background:#f7f7f9;padding:8px;border-radius:4px;font-size:11px;max-height:240px;overflow:auto;">' + JSON.stringify(j, null, 2).replace(/</g,'&lt;') + '</pre>';
+      } catch (err) {
+        result.innerHTML = '<span class="pill fail">⚠ ' + err + '</span>';
+      } finally {
+        btn.disabled = false; btn.textContent = origText;
+      }
+      return false;
+    }
+    // 带 confirm 的版本(用于 move / remove)
+    async function submitFormConfirm(e, kind, url, msg) {
+      if (!confirm(msg)) return false;
+      return submitForm(e, kind, url);
     }
   </script>
 

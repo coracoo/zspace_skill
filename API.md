@@ -282,22 +282,36 @@ Content-Type: application/octet-stream
 
 ### 4.4 其他常用端点
 
-| 端点 | 用途 | 备注 |
-|------|------|------|
-| `/v2/file/info` | 单文件元数据 | 需 `path` |
-| `/v2/file/copy` | 复制 | |
-| `/v2/file/move` | 移动 | |
-| `/v2/file/modify` | 重命名/属性 | |
-| `/v2/file/download` | 下载 | |
-| `/v2/file/hash` | 计算哈希 | |
-| `/v2/file/latest/list` | 最近访问列表 | 空 body 可用 |
-| `/v2/file/categories` | 按类型统计 | 空 body 可用,返回 `{categories:{...}}` |
-| `/v2/file/dwlist` | 下载任务列表 | 空 body 可用 |
-| `/v2/file/empty_dir` | 找空目录 | |
-| `/v2/file/decompress/*` | 解压 | 带密码的 `setpwd` |
-| `/v2/compression/*` | 压缩 | |
-| `/v2/file/notepad/*` | 笔记 | 需要"保险箱"开启 |
-| `/v2/file/decrypt/download` | 加密文件下载 | |
+| 端点 | 用途 | 关键 body 字段 | 状态 |
+|------|------|----------------|------|
+| `/v2/file/info` | 单文件/文件夹元数据 | `path` | ✅ 已验证 |
+| `/v2/file/modify` | **改名** | `path` + **`newname`**(注意不是 `name`/`rename`) | ✅ 已验证 |
+| `/v2/file/move` | 移动 | **`paths[]`**(PHP 数组语法) + **`to`**(不是 `dest`) | ✅ 已验证 |
+| `/v2/file/copy` | 复制 | **`paths[]`** + **`to`** | ✅ 已验证 |
+| `/v2/file/remove` | **删除**(端点名是 remove,不是 delete) | **`paths[]`** | ✅ 已验证 |
+| `/v2/file/download` | 下载 | | 未测 |
+| `/v2/file/hash` | 计算哈希 | | 未测 |
+| `/v2/file/latest/list` | 最近访问列表 | 空 body 可用 | ✅ 通 |
+| `/v2/file/categories` | 按类型统计 | 空 body 可用,返回 `{categories:{...}}` | ✅ 通 |
+| `/v2/file/dwlist` | 下载任务列表 | 空 body 可用 | ✅ 通 |
+| `/v2/file/empty_dir` | 找空目录 | | 未测 |
+| `/v2/file/decompress/*` | 解压 | 带密码的 `setpwd` | 未测 |
+| `/v2/compression/*` | 压缩 | | 未测 |
+| `/v2/file/notepad/*` | 笔记 | 需要"保险箱"开启 | 未测 |
+| `/v2/file/decrypt/download` | 加密文件下载 | | 未测 |
+
+### 4.5 写 API 字段名易踩坑(参考 skyzhao1223/zspace-cli + 实测)
+
+| 操作 | ❌ 想当然的字段 | ✅ 真实字段 | 备注 |
+|------|---------------|-----------|------|
+| newdir | `path` | **`parent`** | 不是 path! |
+| 改名 | `name` / `rename` | **`newname`** | modify 端点用 |
+| move/copy 目标 | `dest` / `target` / `dst` | **`to`** | |
+| move/copy/remove 多个源 | `paths` | **`paths[]`** | PHP 数组语法,跟 classification/increase 的 `file_path[]` 一致 |
+| 删除端点 | `/v2/file/delete` | **`/v2/file/remove`** | 端点名也反直觉 |
+
+错误码 `N007008 文件夹不存在` = `to` 路径不存在(我之前误以为是字段名错)。
+错误码 `N001212 参数有误` = 字段名错或 content-type 不是 form。
 
 ---
 
