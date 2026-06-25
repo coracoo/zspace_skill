@@ -465,7 +465,32 @@ Content-Type: application/octet-stream
 
 | 端点 | 用途 | 实测返回字段 |
 |------|------|--------------|
-| `/v2/album/ai/state` | AI 整体状态 | `{state, faced, face_total, scene_total, clip_total, pet_total, pet_face_total, updated_at, open}` |
+| `/v2/album/ai/state` | AI 整体状态 | `{state, face_total, face_video_total, scene_total, clip_total, pet_total, pet_count, pet_face_total, pet_face_count, ...}` ⚠️ 见下方字段解释 |
+| `/v2/album/ai/taskManager` | 任务管理器 | `{aiDurationList, currentTask, lastTaskEvent, typeMap}`;`typeMap` 列出任务类型:`clip/face/ocr/pet/scene/system` |
+| `/v2/album/ai/taskEventList` | 任务事件流水(实测 1000 项) | `[{userName, taskName, remark, eventId, eventTime}]` |
+| `/v2/album/ai/history/today` | 今日回忆(配音乐) | `{persons, group, addr, desc, music}`;`desc.persons` 是识别出的人脸名,`music` 是配乐 URL |
+| `/v2/album/ai/cluster_detect/options` | 聚类灵敏度 | `[{desc:"普通",value:0.54}, {desc:"增强",0.57}, {desc:"超级增强",0.59}]` |
+| `/v2/album/ai/picking/menu_bar` | AI 挑选菜单 | `[{name:"整体评分",type:9}, {name:"人像挑选",1}, {name:"景物图片",10}, {name:"疑似瑕疵",11}]` |
+| `/v2/album/ai/picking/task/status` | 当前挑选任务状态 | `{id, type, status, total, processed, remaining, msg}`;status=4 表示 cancelled |
+
+> ⚠️ **state 字段解释容易错**(2026-06-25 实测纠正):
+> - `face_total: 2` ≠ 人脸总数。实测 `/v2/album/albums` type=100 有 **129 个人脸 album**(每个识别到的人一个),`face_total` 更可能是**已命名的人脸数**
+> - `pet_total: 2` ✅ 跟实测对上(type=150 "美短" album fnum=2,即 **2 张宠物照片**)
+> - `pet_face_total: 17364` ❌ **不是"宠物脸数"**!只有 2 张宠物照片,远不到 17364。推测是**累计扫描的图片数**或**累计候选框数**(模型推理统计),非真实宠物脸数
+> - `pet_count` / `pet_face_count` 是当前批次的处理数(0 表示 AI 已完成,不在处理中)
+>
+> 真实的相册分类请走 `/v2/album/albums` 按 `type` 字段聚合:
+>
+> | type | 含义 | 实测本机 |
+> |------|------|---------|
+> | 40 | 来源目录 | 16 个(WeiXin 等) |
+> | 60 | 自定义合集 | 1 个("小臭宝" 7097 张) |
+> | 90 | 主题 | 1 个("家装时刻") |
+> | 100 | **人脸**(每个识别到的人一个 album) | 129 个(大多未命名) |
+> | 110 | 场景/事物 | 43 个(船 等) |
+> | 120 | 时刻/事件 | 10 个(七夕情人节 等) |
+> | 130 | 地理位置 | 17 个(三亚市 等) |
+> | 150 | **宠物** | 1 个("美短" fnum=2 ✓) |
 | `/v2/album/ai/taskManager` | 任务管理器 | `{aiDurationList, currentTask, lastTaskEvent, typeMap}`;`typeMap` 列出任务类型:`clip/face/ocr/pet/scene/system` |
 | `/v2/album/ai/taskEventList` | 任务事件流水(实测 1000 项) | `[{userName, taskName, remark, eventId, eventTime}]` |
 | `/v2/album/ai/history/today` | 今日回忆(配音乐) | `{persons, group, addr, desc, music}`;`desc.persons` 是识别出的人脸名,`music` 是配乐 URL |
