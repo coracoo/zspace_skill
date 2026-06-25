@@ -310,12 +310,21 @@ Content-Type: application/octet-stream
 | 端点 | 用途 | 关键 body |
 |------|------|----------|
 | `/zvideo/classification/list` | 列出所有分类 | `{}` |
-| `/zvideo/classification/dirs` | 列出影视库源目录 | `{}` |
+| `/zvideo/classification/dirs` | 列出影视库源目录(所有分类的汇总,无分类维度) | `{}` |
 | `/zvideo/classification/mode` | 当前模式(按分类/按文件夹) | `{}` |
-| `/zvideo/classification/add` | **新建分类** | `classification_name` + `file_path` + `share_users`(JSON 字符串) + `not_scrape`(0/1) |
+| `/zvideo/classification/add` | **新建分类** | `classification_name` + `file_path`(可选,实测不真的关联) + `share_users`(JSON 字符串) + `not_scrape`(0/1) |
+| `/zvideo/classification/increase` | **把目录关联到分类** | `classification_id` + **`file_path[]`**(注意方括号,PHP 数组语法!多个目录就重复 `file_path[]=path1&file_path[]=path2`) |
 | `/zvideo/classification/del` | 删除分类 | `classification_id` |
+| `/zvideo/classification/rmdir` | 从分类移除目录 | `classification_id` + `file_path` |
 | `/zvideo/classification/editname` | 改名 | |
-| `/zvideo/classification/rescan` | 触发重新扫描 | |
+| `/zvideo/classification/rescan` | 触发重新扫描 | `classification_id` → 返回 `task_id` |
+| `/zvideo/classification/checkaddstatus` | 是否有添加任务在进行 | `classification_id` |
+
+⚠️ **`/classification/increase` 易踩坑**:
+- 字段名是 `file_path[]`,**不是** `file_path`(PHP 数组语法)
+- 错误码 `N120019 = 文件夹已添加,请勿重复添加`(成功后再次调用返回这个)
+- 错误码 `N120020` = 参数有误(常见于用错字段名)
+- 公共 query `plat/version/device_id/device/_l` 必须都带
 
 **分类对象字段**:
 ```json
