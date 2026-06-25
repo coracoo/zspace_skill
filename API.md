@@ -484,16 +484,58 @@ Content-Type: application/octet-stream
 > | type | 含义 | 实测本机 |
 > |------|------|---------|
 > | 40 | 来源目录 | 16 个(WeiXin 等) |
-> | 60 | 自定义合集 | 1 个("小臭宝" 7097 张) |
-> | 90 | 主题 | 1 个("家装时刻") |
-> | 100 | **人脸**(每个识别到的人一个 album) | 129 个(大多未命名) |
+> | 60 | **儿童相册**(有 gender/birthday 字段) | 1 个("小臭宝",男孩,2019-11-13 生,7097 张) |
+> | 90 | 主题相册(用户自建) | 1 个("家装时刻") |
+> | 100 | **人脸**(AI 聚类,大多未命名) | 129 个 |
 > | 110 | 场景/事物 | 43 个(船 等) |
-> | 120 | 时刻/事件 | 10 个(七夕情人节 等) |
+> | 120 | 节日 | 10 个(七夕情人节、春节 等) |
 > | 130 | 地理位置 | 17 个(三亚市 等) |
 > | 150 | **宠物** | 1 个("美短" fnum=2 ✓) |
-| `/v2/album/ai/taskManager` | 任务管理器 | `{aiDurationList, currentTask, lastTaskEvent, typeMap}`;`typeMap` 列出任务类型:`clip/face/ocr/pet/scene/system` |
+>
+> ⚠️ **关于 `/history/today` 的 `desc.persons` 字段**:
+> 实测 `album_id: 1151` 对应的相册 `name: ""`(空),`type: 100`。`desc.persons: ["温柔岁月"]` **不是人脸名**,是 AI 自动生成的**回忆卡片标题**(诗意命名,如"温柔岁月")。完整结构:
+> - `persons`: 数组,每项 = `{total, album_id, list[照片]}` —— 今天历史上拍的照片按"人物主题"分组
+> - `desc.persons/group/addr`: AI 给三组卡片起的**诗意标题**(不是真实姓名)
+> - `music.persons/group/addr`: 每组卡片配的背景音乐 URL
+
+#### 6.7.2 单相册操作 `/v2/album/album/*`(30+ 端点)
+
+> 单个相册的 CRUD + 内部照片管理 + 社交功能。统一用 **`album_id`** 作参数(不是 `id` 也不是 `aid`)。
+
+| 端点 | 用途 | 关键 body |
+|------|------|----------|
+| `/v2/album/album/info` | 相册详情(含 owner/users/gender/birthday 儿童专属字段) | `album_id` |
+| `/v2/album/album/feeds` | **列相册内照片**(分页) | `album_id` + `start` + `num`;返回 `{total, list[{id, name, path, size, width, height, ftype, crtime, longitude, latitude, faces, ...}]}` |
+| `/v2/album/album/create` / `delete` / `modify` / `change` | 相册 CRUD | 写 |
+| `/v2/album/album/merge` | 合并相册 | 写 |
+| `/v2/album/album/feed/add` / `delete` / `move` / `kick` | 照片加入/移出相册 | 写 |
+| `/v2/album/album/comments/create` / `delete` / `list` | 评论 |  |
+| `/v2/album/album/posting/create` / `delete` / `info` / `home` / `like` / `list` | 贴子/动态(相册内社交) |  |
+| `/v2/album/album/moments` | 时刻(回忆) | 需 `album_id` |
+| `/v2/album/album/music` | 背景音乐 | 需 `album_id` |
+| `/v2/album/album/download` | 打包下载 |  |
+| `/v2/album/album/binds` | 绑定(分享给谁) |  |
+| `/v2/album/album/flush` | 刷新 |  |
+| `/v2/album/album/ai/face` / `ai/role` | 取 AI 封面(GET!)`/ai/role` 需 `album_id` |  |
+| `/v2/album/album/albums/by_feed_id` | 按照片反查所属相册 | `feed_id` |
+| `/v2/album/album/path/cover` | 自定义封面 |  |
+| `/v2/album/album/create/batch` | 批量建相册 | 写 |
+
+**单照片字段(`/feeds` 返回的)**:
+- `ftype`: 101=照片, 102=视频
+- `crtime`: 创建时间(Unix 秒)
+- `cdate`: 创建日期 YYYYMMDD
+- `longitude` / `latitude` / `geo_hash`: GPS
+- `make` / `model`: 拍摄设备(如 apple / iphone 13)
+- `faces`: `[{face_x, face_y, face_w, face_h, score}]` 人脸框坐标 + 置信度
+- `ilike`: 0/1 是否点赞
+- `is_livep`: Live Photo
+- `is_shot`: 截图
+- `is_self`: 自拍
+- `is_wide`: 全景
+- `duration`: 视频时长(秒)| `/v2/album/ai/taskManager` | 任务管理器 | `{aiDurationList, currentTask, lastTaskEvent, typeMap}`;`typeMap` 列出任务类型:`clip/face/ocr/pet/scene/system` |
 | `/v2/album/ai/taskEventList` | 任务事件流水(实测 1000 项) | `[{userName, taskName, remark, eventId, eventTime}]` |
-| `/v2/album/ai/history/today` | 今日回忆(配音乐) | `{persons, group, addr, desc, music}`;`desc.persons` 是识别出的人脸名,`music` 是配乐 URL |
+| `/v2/album/ai/history/today` | 今日回忆(配音乐) | 见上方解释 |
 | `/v2/album/ai/cluster_detect/options` | 聚类灵敏度 | `[{desc:"普通",value:0.54}, {desc:"增强",0.57}, {desc:"超级增强",0.59}]` |
 | `/v2/album/ai/picking/menu_bar` | AI 挑选菜单 | `[{name:"整体评分",type:9}, {name:"人像挑选",1}, {name:"景物图片",10}, {name:"疑似瑕疵",11}]` |
 | `/v2/album/ai/picking/task/status` | 当前挑选任务状态 | `{id, type, status, total, processed, remaining, msg}`;status=4 表示 cancelled |
