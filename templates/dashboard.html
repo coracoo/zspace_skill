@@ -312,6 +312,102 @@
     </p>
   </details>
 
+  <!-- ============ 写测试 ============ -->
+  <h2 class="section">🧪 写测试 <span class="desc">⚠️ 这些操作会真实写入 NAS,谨慎使用</span></h2>
+
+  <div class="grid">
+    <!-- 建文件夹 -->
+    <div class="card full">
+      <h3>📁 建文件夹(<code>POST /v2/file/newdir</code>)</h3>
+      <div id="mkdir-result" class="small" style="margin-bottom:10px;color:#666;">
+        当前状态:{% if test_dir_exists %}<span class="pill ok">test 文件夹已存在</span>{% else %}<span class="pill">test 文件夹不存在</span>{% endif %}
+      </div>
+      <form id="mkdir-form" onsubmit="return submitMkdir(event);">
+        <div style="display:grid;grid-template-columns:1fr 200px auto;gap:8px;align-items:end;">
+          <div>
+            <label class="small">父目录(parent)</label>
+            <input type="text" name="parent" value="/sata14/my/data/备份" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+          </div>
+          <div>
+            <label class="small">文件夹名(name)</label>
+            <input type="text" name="name" value="test" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+          </div>
+          <button type="submit" style="padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 执行写入</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- 建极影视分类 -->
+    <div class="card full">
+      <h3>🎬 建极影视分类(<code>POST /zvideo/classification/add</code>)</h3>
+      <div id="classify-result" class="small" style="margin-bottom:10px;color:#666;">
+        当前状态:{% if test_class_exists %}<span class="pill ok">test 分类已存在</span>{% else %}<span class="pill">test 分类不存在</span>{% endif %}
+        <span class="small">⚠️ 此 API 不真的关联目录到分类;关联需要 <code>/zvideo/classification/increase</code>,目前参数格式没完全摸清(返回 <code>N120020</code>)</span>
+      </div>
+      <form id="classify-form" onsubmit="return submitClassify(event);">
+        <div style="display:grid;grid-template-columns:150px 1fr auto;gap:8px;align-items:end;">
+          <div>
+            <label class="small">分类名(classification_name)</label>
+            <input type="text" name="classification_name" value="test" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+          </div>
+          <div>
+            <label class="small">关联目录(file_path,可选,不会被实际关联)</label>
+            <input type="text" name="file_path" value="/sata14/my/data/备份/test" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+          </div>
+          <button type="submit" style="padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 执行写入</button>
+        </div>
+        <label class="small" style="margin-top:6px;display:block;">
+          <input type="checkbox" name="not_scrape" value="1" checked> 不刮削(not_scrape,避免 NAS 试图去 TMDB 查询)
+        </label>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    async function submitMkdir(e) {
+      e.preventDefault();
+      const form = e.target;
+      const data = new FormData(form);
+      const result = document.getElementById('mkdir-result');
+      const btn = form.querySelector('button');
+      btn.disabled = true; btn.textContent = '执行中...';
+      result.innerHTML = '<span class="pill">⏳ 调用 NAS API...</span>';
+      try {
+        const r = await fetch('/action/mkdir', {method: 'POST', body: data});
+        const j = await r.json();
+        const ok = String(j.code) === '200';
+        result.innerHTML = (ok ? '<span class="pill ok">✓ code=200</span>' : '<span class="pill fail">✗ code=' + j.code + '</span>')
+          + ' msg=' + (j.msg || '') + '<pre style="margin-top:8px;background:#f7f7f9;padding:8px;border-radius:4px;font-size:11px;max-height:200px;overflow:auto;">' + JSON.stringify(j, null, 2).replace(/</g,'&lt;') + '</pre>';
+      } catch (err) {
+        result.innerHTML = '<span class="pill fail">⚠ ' + err + '</span>';
+      } finally {
+        btn.disabled = false; btn.textContent = '⚠️ 执行写入';
+      }
+      return false;
+    }
+    async function submitClassify(e) {
+      e.preventDefault();
+      const form = e.target;
+      const data = new FormData(form);
+      const result = document.getElementById('classify-result');
+      const btn = form.querySelector('button');
+      btn.disabled = true; btn.textContent = '执行中...';
+      result.innerHTML = '<span class="pill">⏳ 调用 NAS API...</span>';
+      try {
+        const r = await fetch('/action/add-classification', {method: 'POST', body: data});
+        const j = await r.json();
+        const ok = String(j.code) === '200';
+        result.innerHTML = (ok ? '<span class="pill ok">✓ code=200</span>' : '<span class="pill fail">✗ code=' + j.code + '</span>')
+          + ' msg=' + (j.msg || '') + '<pre style="margin-top:8px;background:#f7f7f9;padding:8px;border-radius:4px;font-size:11px;max-height:200px;overflow:auto;">' + JSON.stringify(j, null, 2).replace(/</g,'&lt;') + '</pre>';
+      } catch (err) {
+        result.innerHTML = '<span class="pill fail">⚠ ' + err + '</span>';
+      } finally {
+        btn.disabled = false; btn.textContent = '⚠️ 执行写入';
+      }
+      return false;
+    }
+  </script>
+
 </div>
 </body>
 </html>

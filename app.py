@@ -182,13 +182,20 @@ async def dashboard(request: Request):
     breadcrumb = build_breadcrumb(file_path)
 
     async with httpx.AsyncClient(timeout=10, cookies=cookies) as client:
-        # 所有 NAS 调用并发跑(原本串行 ~1.5s,并发后约等于最慢一个)
+        # N150 低性能设备,并发最多 2 路,避免把 NAS 拖垮
+        sem = asyncio.Semaphore(2)
+
+        async def _g(coro):
+            async with sem:
+                return await coro
+
+        # 6 个 NAS 调用,限流 2 并发跑(原本串行 ~1.5s,2 路并发约 700ms)
         monitor_html, zspool_info, zspool_hw, file_resp, zvideo_classes, zvideo_dirs = (
             await asyncio.gather(
-                client.get(_append_common_query(f"{NAS_BASE}/zstatus")),
-                _nas_get(client, "/zspool/info"),
-                _nas_get(client, "/zspool/hardware/info"),
-                _nas_post(client, "/v2/file/list", {
+                _g(client.get(_append_common_query(f"{NAS_BASE}/zstatus"))),
+                _g(_nas_get(client, "/zspool/info")),
+                _g(_nas_get(client, "/zspool/hardware/info")),
+                _g(_nas_post(client, "/v2/file/list", {
                     "folderId": 0,
                     "path": file_path,
                     "start": 0,
@@ -196,11 +203,43 @@ async def dashboard(request: Request):
                     "sortby": "name",
                     "order": "asc",
                     "show_hidden": 0,
-                }),
-                _nas_post(client, "/zvideo/classification/list", {}),
-                _nas_post(client, "/zvideo/classification/dirs", {}),
+                })),
+                _g(_nas_post(client, "/zvideo/classification/list", {})),
+                _g(_nas_post(client, "/zvideo/classification/dirs", {})),
             )
         )
+
+    # 写测试状态:看 test 文件夹和 test 分类是否存在
+    test_dir_exists = False
+    if file_resp.get("code") == "200":
+        for it in (file_resp.get("data", {}).get("list") or []):
+            if it.get("name") == "test" and it.get("is_dir") == "1":
+                # 但当前 file_path 可能不在 备份/ 下,需要看完整 path
+                if it.get("path", "").endswith("/备份/test"):
+                    test_dir_exists = True
+                    break
+    # 单独查 备份/ 一下,因为 dashboard 的 file_path 可能是其他目录
+    if not test_dir_exists:
+        async with httpx.AsyncClient(timeout=8, cookies=cookies) as client:
+            bak_resp = await _nas_post(client, "/v2/file/list", {
+                "folderId": 0,
+                "path": "/sata14/my/data/备份/",
+                "start": 0, "num": 50,
+                "sortby": "name", "order": "asc",
+                "show_hidden": 0,
+            })
+        if bak_resp.get("code") == "200":
+            for it in (bak_resp.get("data", {}).get("list") or []):
+                if it.get("name") == "test":
+                    test_dir_exists = True
+                    break
+
+    test_class_exists = False
+    if zvideo_classes.get("code") == "200":
+        for c in (zvideo_classes.get("data") or []):
+            if c.get("name") == "test":
+                test_class_exists = True
+                break
 
     return templates.TemplateResponse(
         request,
@@ -215,6 +254,8 @@ async def dashboard(request: Request):
             "breadcrumb": breadcrumb,
             "zvideo_classes": zvideo_classes,
             "zvideo_dirs": zvideo_dirs,
+            "test_dir_exists": test_dir_exists,
+            "test_class_exists": test_class_exists,
             "cookies_keys": list(cookies.keys()),
         },
     )
@@ -324,8 +365,8 @@ async def proxy_get(request: Request, path: str):
 
 
 @app.post("/_proxy")
-async def proxy_post(request: Request, path: str = None):
-    """POST 调试用:body 是 JSON,path 走 query"""
+async def proxy_post(request: Request, path: str = None, as_form: bool = True):
+    """POST 调试用:body 是 JSON,path 走 query。默认 form,?as_form=false 用 JSON"""
     cookies = request.session.get("nas_cookies")
     if not cookies:
         return {"error": "not logged in"}
@@ -334,4 +375,47 @@ async def proxy_post(request: Request, path: str = None):
     except Exception:
         body = {}
     async with httpx.AsyncClient(timeout=10, cookies=cookies) as client:
-        return await _nas_post(client, path or "/", body)
+        return await _nas_post(client, path or "/", body, as_form=as_form)
+
+
+# ---------- 写测试端点(写 NAS,谨慎使用)----------
+@app.post("/action/mkdir")
+async def action_mkdir(request: Request, parent: str = Form(...), name: str = Form(...)):
+    """创建文件夹:NAS /v2/file/newdir"""
+    cookies = request.session.get("nas_cookies")
+    if not cookies:
+        return {"error": "not logged in"}
+    log.info("mkdir received parent=%r name=%r", parent, name)
+    async with httpx.AsyncClient(timeout=10, cookies=cookies) as client:
+        res = await _nas_post(client, "/v2/file/newdir", {
+            "parent": parent,
+            "name": name,
+            "rename": 0,
+        })
+    log.info("mkdir parent=%s name=%s → code=%s", parent, name, res.get("code"))
+    return res
+
+
+@app.post("/action/add-classification")
+async def action_add_classification(
+    request: Request,
+    classification_name: str = Form(...),
+    file_path: str = Form(""),
+    not_scrape: int = Form(1),
+):
+    """建极影视分类:NAS /zvideo/classification/add"""
+    cookies = request.session.get("nas_cookies")
+    if not cookies:
+        return {"error": "not logged in"}
+    form = {
+        "classification_name": classification_name,
+        "share_users": "[]",
+        "not_scrape": not_scrape,
+    }
+    if file_path:
+        form["file_path"] = file_path
+    async with httpx.AsyncClient(timeout=10, cookies=cookies) as client:
+        res = await _nas_post(client, "/zvideo/classification/add", form)
+    log.info("add-classification name=%s file_path=%s → code=%s",
+             classification_name, file_path, res.get("code"))
+    return res
