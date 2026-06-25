@@ -375,6 +375,110 @@ Content-Type: application/octet-stream
 
 ---
 
+## 5.3 其他 `/v2/*` 端点(系统扫描发现的)
+
+> 通过 pcweb JS 静态分析 + 实测得到,本节列出**已确认可在 LAN 调通**的端点。
+
+### 5.3.1 文件分享 `/v2/share/*`(外链分享)
+
+| 端点 | 用途 | 关键 body |
+|------|------|----------|
+| `/v2/share/list` | 我创建的外链分享列表 | `{}` 返回 `list[{id, code, pass, fname, dirname, ...}]` |
+| `/v2/share/statics` | 分享统计 | `{}` 返回 `{total, expired, normal, cancel, disable, other}` |
+| `/v2/share/create` | 创建分享 | 待测 |
+| `/v2/share/delete` | 删除分享 | `id` 或 `code` |
+| `/v2/share/modify` | 改分享(密码/有效期) | `id` |
+
+### 5.3.2 内部分享 `/v2/nshare/*`(用户间分享)
+
+| 端点 | 用途 | 状态 |
+|------|------|------|
+| `/v2/nshare/list` | 全部内部分享 | ✅ 返回 `list[{name, path, is_dir, ...}]` |
+| `/v2/nshare/mine` | 我分享出去的 | ✅ |
+| `/v2/nshare/forme` | 分享给我的 | ✅ |
+| `/v2/nshare/create` | 创建 | 待测 |
+| `/v2/nshare/info` | 详情 | 待测 |
+| `/v2/nshare/cancel` / `discard` / `make` | 待测 | |
+
+### 5.3.3 最近访问 `/v2/recent/*`
+
+| 端点 | 用途 | 备注 |
+|------|------|------|
+| `/v2/recent/list` | 最近访问的文件(实测 992 项) | ✅ `{}` 返回 `{total, list[{name, path, ...}]}` |
+| `/v2/recent/new` | 待测 | N001411 无权限(可能有特殊要求) |
+| `/v2/recent/remove` | 清除记录 | 待测 |
+
+### 5.3.4 用户/权限 `/v2/public/*`(多账号/子账号管理)
+
+⚠️ 这些都需要参数,字段名还没完全摸清。从路径推断用途:
+
+| 端点 | 推断用途 |
+|------|---------|
+| `/v2/public/group/list` | 用户组列表(主账号管理子账号分组) |
+| `/v2/public/group/add` / `delete` | 加/删组 |
+| `/v2/public/permission/list` / `get` / `set` / `switch` | 权限管理 |
+| `/v2/public/quota/list` / `set` | 配额管理 |
+| `/v2/public/recycle/clean` / `restore` | 公共回收站 |
+| `/v2/public/user/groups` | 用户的组(N001217 此子帐号不存在 → 主账号调用报错) |
+
+### 5.3.5 加密目录 `/v2/encryptdir/*`
+
+| 端点 | 用途 |
+|------|------|
+| `/v2/encryptdir/new` | 创建加密目录(需 path + password) |
+| `/v2/encryptdir/lock` / `unlock` | 锁定/解锁 |
+| `/v2/encryptdir/release` | 释放 |
+| `/v2/encryptdir/rename` | 改名 |
+| `/v2/encryptdir/resetpasswd` | 重置密码 |
+| `/v2/encryptdir/seticon` | 改图标 |
+
+### 5.3.6 压缩/解压 `/v2/compression/*` + `/v2/decom/*`
+
+| 端点 | 用途 |
+|------|------|
+| `/v2/compression/browser` | 浏览压缩包内容(需 path) |
+| `/v2/compression/create` | 创建压缩包 |
+| `/v2/compression/download` | 下载压缩包 |
+| `/v2/decom/create` | 解压 |
+
+### 5.3.7 相册 `/v2/album/*`(146 个端点,极空间大头)
+
+| 端点 | 用途 | 状态 |
+|------|------|------|
+| `/v2/album/albums` | 全部相册(实测 218 个) | ✅ `{}` 返回 `{total, list[{id, name, type, cover, ...}]}` |
+| `/v2/album/home` | 相册首页(聚合) | ✅ 返回 `{sys_dir, ilike, albums, others, combine}` |
+| `/v2/album/dirs` | 相册源目录 | ✅ |
+| `/v2/album/position` | 照片位置(地图) | 需参数 |
+| `/v2/album/album/create` / `delete` / `change` | 相册 CRUD | 写 |
+| `/v2/album/album/feed/add` / `delete` / `move` | 相册内照片管理 | 写 |
+| `/v2/album/album/comments/*` | 相册评论 |  |
+| `/v2/album/ai/*` | AI 功能(人脸/宠物/OCR) | 进度查询等,需参数 |
+| `/v2/album/ilikelist` | 我喜欢的 | (路径可能不对,404) |
+| `/v2/album/share` / `nasshare` | 相册分享 |  |
+
+### 5.3.8 Web Office `/v2/weboffic/*` + `/v2/onlyoffice/*`
+
+| 端点 | 用途 |
+|------|------|
+| `/v2/weboffic/getconfig` | Web Office 配置(status, version_num, app_id, ...) |
+| `/v2/weboffic/saveconfig` | 保存配置 |
+| `/v2/onlyoffice/font/list` | 字体列表 |
+| `/v2/onlyoffice/font/save` / `copy` / `task` | 字体管理 |
+| `/v2/onlyoffice/file/rename` | Office 文件改名 |
+
+### 5.3.9 404 的端点(后端不在 8050)
+
+以下端点在 openresty 路由表里,但实际调用 404 —— 推测后端在别的服务/未启用:
+
+- `/v2/email/*`(check, modify, send) — 邮件相关
+- `/v2/qc/*`(create/master, list, ...) — 不明
+- `/v2/ud/*`(check, expire, key/pub) — 不明(可能 user device)
+- `/v2/short/create` — 短链?
+- `/v2/captcha/` — 验证码
+- `/v2/tob/share/config/get` — 不明
+
+---
+
 ## 6. 文件搜索 `/file_search/*`
 
 | 端点 | 用途 |
