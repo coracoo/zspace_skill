@@ -517,6 +517,92 @@ async def whoami() -> str:
     })
 
 
+# ============ 写工具(7 个,⚠️ 真实落盘到 NAS)============
+# MCP 客户端(Claude Code/Cursor)会在 LLM 调用写 tool 时弹 UI 让用户批准,
+# 所以这里不再做额外 confirm。每个 tool 的 docstring 写清楚后果。
+
+
+@mcp.tool()
+async def mkdir(parent: str, name: str) -> str:
+    """⚠️ 写入:在 NAS 创建文件夹。
+    parent: 父目录,无尾斜杠,如 /sata14/my/data/备份
+    name: 新文件夹名,如 test
+    返回新文件夹的完整 metadata(失败返回 NAS 错误码)。"""
+    return _to_json(await nas.post("/v2/file/newdir", {
+        "parent": parent, "name": name, "rename": 0,
+    }))
+
+
+@mcp.tool()
+async def rename(path: str, newname: str) -> str:
+    """⚠️ 写入:重命名文件/文件夹。
+    path: 原完整路径,如 /sata14/my/data/备份/test
+    newname: 新名字(只名字,不是完整路径)"""
+    # NAS 用 form 时字段是 newname,直接传 dict 会编码成 newname=...
+    return _to_json(await nas.post("/v2/file/modify", {"path": path, "newname": newname}))
+
+
+@mcp.tool()
+async def move(paths: str, to: str) -> str:
+    """⚠️ 写入:移动文件/文件夹到目标目录。
+    paths: 源路径,**多个用英文逗号分隔**,如 /a/b.txt,/c/d.txt
+    to: 目标目录(必须已存在),如 /sata14/my/data/目标"""
+    path_list = [p.strip() for p in paths.split(",") if p.strip()]
+    return _to_json(await nas.post("/v2/file/move", {"to": to, "paths[]": path_list}))
+
+
+@mcp.tool()
+async def copy(paths: str, to: str) -> str:
+    """⚠️ 写入:复制文件/文件夹到目标目录。
+    paths: 源路径,多个用英文逗号分隔
+    to: 目标目录(必须已存在)"""
+    path_list = [p.strip() for p in paths.split(",") if p.strip()]
+    return _to_json(await nas.post("/v2/file/copy", {"to": to, "paths[]": path_list}))
+
+
+@mcp.tool()
+async def remove(paths: str) -> str:
+    """⚠️⚠️ 写入(危险):删除文件/文件夹,**不进回收站,不可逆**!
+    paths: 要删的路径,多个用英文逗号分隔
+    端点名是 /v2/file/remove(不是 delete)"""
+    path_list = [p.strip() for p in paths.split(",") if p.strip()]
+    return _to_json(await nas.post("/v2/file/remove", {"paths[]": path_list}))
+
+
+@mcp.tool()
+async def add_video_classification(
+    name: str, file_path: str = "", not_scrape: int = 1
+) -> str:
+    """⚠️ 写入:在极影视新建一个分类(如"动漫""纪录片")。
+    name: 分类名,如 test
+    file_path: 关联目录(可选,实测 NAS 不会真的关联,需要单独调 link_folder_to_classification)
+    not_scrape: 1=不刮削(推荐测试用,避免 NAS 跑去 TMDB 查询);0=刮削"""
+    form = {
+        "classification_name": name,
+        "share_users": "[]",
+        "not_scrape": not_scrape,
+    }
+    if file_path:
+        form["file_path"] = file_path
+    return _to_json(await nas.post("/zvideo/classification/add", form))
+
+
+@mcp.tool()
+async def link_folder_to_classification(
+    classification_id: str, file_path: str
+) -> str:
+    """⚠️ 写入:把目录关联到极影视分类(让分类扫描该目录的影片)。
+    classification_id: 分类 UUID(从 list_video_classes 拿)
+    file_path: 要关联的目录路径,如 /sata14/my/data/备份/test
+    关键:字段名是 file_path[](PHP 数组语法),这里自动处理。
+    返回 N120019 = 已经关联过(也算成功)。"""
+    # 字段名带 [],直接传 dict(NAS PHP 解析为数组)
+    return _to_json(await nas.post("/zvideo/classification/increase", {
+        "classification_id": classification_id,
+        "file_path[]": file_path,
+    }))
+
+
 # ============ 入口 ============
 async def _startup():
     global nas
