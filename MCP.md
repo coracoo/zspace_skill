@@ -2,7 +2,7 @@
 
 把 NAS 反向工程的 HTTP API 包成 MCP tool,让 Claude Code / Cursor / Claude Desktop 等 AI 客户端能直接调用。
 
-源文件:`mcp_server.py`(单文件,~700 行) · 测试桩:`README.md` 有完整握手示例。
+源文件:`mcp_server/` 包(按域拆分) · 薄入口:`mcp_server.py`(shim,兼容外部 mcp.json) · 测试桩:`README.md` 有完整握手示例。
 
 ---
 
@@ -827,7 +827,7 @@ location=1 是保险箱备忘录,需要先开保险箱 — 这套 tool 全部用
 
 ### 6.5 ✅ 已部署:iPhone Shortcut 推送入口(非 MCP,走 dashboard)
 
-**端点**:`POST /shortcut/notepad`(在 dashboard `app.py:660` 里,不是 MCP tool)
+**端点**:`POST /shortcut/notepad`(在 dashboard `app/routes/shortcut.py` 里,不是 MCP tool)
 **配套文档**:`docs/iphone-shortcut.md`
 **用途**:iPhone 备忘录 → NAS 记事本 同步(单向)
 
@@ -897,6 +897,6 @@ NAS 跑的是 **N150 CPU**(低功耗)+ 96 个服务。**并发请求会卡死宿
 
 - **`API.md`** — NAS 全端点速查(907 行)+ 字段对照 + 易踩坑(目前只覆盖到 §6.3.2)
 - **`README.md`** — Dashboard + MCP 总览 + 配置示例
-- **`app.py`** — Dashboard FastAPI 实现,24 个 `/action/notebook-*` 写测试桩
+- **`app/`** — Dashboard FastAPI 实现(`app/routes/notebook.py` 有 24 个 `/action/notebook-*` 写测试桩)
 - **`templates/tab_*.html`** — Dashboard 5 个 tab(总览/存储池/极影视/记事本/写测试)
-- **`mcp_server.py`** — 本文档对应的 MCP 实现
+- **`mcp_server/`** — 本文档对应的 MCP 实现(按域拆分成 `tools/*.py`)

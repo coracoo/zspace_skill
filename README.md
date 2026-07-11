@@ -5,6 +5,67 @@
 2. **MCP Server**(`mcp_server.py`)— **58 个 tool**(40 读 + 18 写),让 Claude Code/Cursor 直接操作 NAS。
    RAG 语义搜索为**可选模块**(3 个 tool),需单独安装 `rag/` 包;未安装时自动禁用,详见下文「RAG」一节。
 
+### 目录结构
+
+```
+zspace-mcp-poc/
+├── nas/                          # NAS 协议层(纯函数 + 常量)
+│   ├── __init__.py               # 重导出 NasClient / encrypt / pubkey 等
+│   ├── auth.py                   # RSA 公钥 PEM + encrypt() + resolve_device_id()
+│   ├── proto.py                  # NAS_BASE, _common_query(), _append_common_query()
+│   └── client.py                 # NasClient(async,从 mcp_server.py:88-259 搬过来)
+│
+├── mcp_server/                   # MCP server 按域拆
+│   ├── __init__.py               # from .client import NasClient; from .main import main
+│   ├── main.py                   # FastMCP 实例 + 启动逻辑
+│   ├── zenith.py                 # ZenithSession(云代理 session)
+│   ├── perf.py                   # _parse_perf / _ssh_perf / _parse_zstatus
+│   ├── rag_hook.py               # _rag_hook + RAG 占位
+│   └── tools/
+│       ├── __init__.py
+│       ├── files.py              # 文件类 tool(12 个)
+│       ├── storage.py            # 池/硬件/SMART/监控(8 个)
+│       ├── zvideo.py             # 影视 8 个 tool
+│       ├── media.py              # 音乐/相册(3 个)
+│       ├── shares.py             # 下载/分享/共享服务(7 个)
+│       ├── notebook.py           # 17 个 notebook tool
+│       ├── proxy.py              # proxy_* 4 个
+│       └── rag.py                # 可选 RAG tool(try import 模式)
+│
+├── mcp_server.py                 # 薄入口 shim:from mcp_server.main import main; main()
+│
+├── app/                          # FastAPI app 按域拆
+│   ├── __init__.py               # from .main import app
+│   ├── main.py                   # create_app() + middleware + 注册所有 router
+│   ├── deps.py                   # _require_login / _common_ctx / session helper
+│   ├── nas_helpers.py             # _nas_get / _nas_post / _append_common_query
+│   ├── shortcut_client.py        # _get_shortcut_nas_client + _reset_shortcut_nas_client + _title_eq
+│   ├── cocoa.py                  # _cocoa_html_to_clean(HTML 转换)
+│   ├── perf.py                   # _ssh_perf_snapshot + _parse_perf + _get_perf_cached
+│   ├── zstatus.py                # parse_zstatus + fmt_bytes + datetime_local + build_breadcrumb
+│   └── routes/
+│       ├── __init__.py
+│       ├── auth.py               # /, /login, /logout
+│       ├── dashboard.py          # /dashboard/{overview,storage,zvideo,notebook}
+│       ├── files.py              # /action/{mkdir,rename,move,copy,remove,info,...}
+│       ├── notebook.py           # /action/notebook-*(24 个)
+│       ├── zvideo.py             # /action/{add-classification,link-folder}
+│       ├── shortcut.py           # /shortcut/notepad + /n PWA
+│       └── proxy.py              # /_proxy GET/POST + /healthz + /api/perf
+│
+├── app.py                        # 薄入口 shim:from app.main import app
+├── templates/                    # Dashboard 5 个 tab 模板
+├── start.sh                      # 启动脚本(入口路径不变)
+├── requirements.txt
+├── README.md                     # 本文件
+├── API.md                        # NAS 全端点速查(端点表不变)
+├── MCP.md                        # MCP 58 个 tool 详细文档
+└── .claude/skills/               # skill 工作流
+    ├── label-manager/            # 标签管理 skill
+    ├── media-organizer/          # 极影视诊断 skill
+    └── file-organizer/           # 文件诊断 skill(只读)
+```
+
 ### 当前完成情况
 
 | 模块 | 状态 | 说明 |
@@ -190,7 +251,7 @@ zos 给每个 NAS 内网端口分配一个公网子域名:`https://remote-access
 
 | 用途 | 工具 |
 |------|------|
-| MCP / Claude Code 程序化访问 | `mcp_server.py` 的 `proxy_fetch` |
+| MCP / Claude Code 程序化访问 | `mcp_server/tools/proxy.py` 的 `proxy_fetch` |
 | 浏览器侧一键跳转 | `browser-extension/` 扩展 |
 | URL 模板生成 | `proxy_url_for_port` |
 
@@ -222,7 +283,29 @@ asyncio.run(m())
 "
 ```
 
-## 三、故障排查
+## 三、开发
+
+**修改 MCP tool 请编辑 `mcp_server/tools/<域>.py`,不要往 `mcp_server.py` 加(tool 实现已搬走)**。
+**修改 Dashboard 路由请编辑 `app/routes/<域>.py`,不要往 `app.py` 加(路由实现已搬走)**。
+
+- 文件类工具 → `mcp_server/tools/files.py`
+- 存储池/监控 → `mcp_server/tools/storage.py`
+- 影视 → `mcp_server/tools/zvideo.py`
+- 音乐/相册 → `mcp_server/tools/media.py`
+- 下载/分享/共享服务 → `mcp_server/tools/shares.py`
+- 记事本 → `mcp_server/tools/notebook.py`
+- 远程访问代理 → `mcp_server/tools/proxy.py`
+- RAG 语义搜索 → `mcp_server/tools/rag.py`(可选)
+
+- 登录/首页/登录 → `app/routes/auth.py`
+- Dashboard 4 个 tab → `app/routes/dashboard.py`
+- 文件操作(/action/*) → `app/routes/files.py`
+- 记事本操作(/action/notebook-*) → `app/routes/notebook.py`
+- 影视操作(/action/{add-classification,link-folder}) → `app/routes/zvideo.py`
+- iPhone Shortcut(/shortcut/notepad) → `app/routes/shortcut.py`
+- 代理调试(/_proxy, /healthz) → `app/routes/proxy.py`
+
+## 五、故障排查
 
 | 现象 | 原因 | 处理 |
 |------|------|------|
@@ -237,7 +320,7 @@ asyncio.run(m())
 | `proxy_fetch` 403 | 端口不在白名单 | pcweb UI 加端口到远程访问白名单 |
 | `proxy_fetch` 502 | 目标不可达(跨机 LAN 条目) | 改成 `127.0.0.1:{port}` 而不是 LAN IP |
 
-## 四、Skill 工作流
+## 六、Skill 工作流
 
 Claude Code 的 skill 是 MCP 之上的"组合动作"层,做 LLM 不擅长或容易漏的机械活。
 
@@ -256,7 +339,7 @@ Claude Code 的 skill 是 MCP 之上的"组合动作"层,做 LLM 不擅长或容
 
 详细见各 skill 目录的 `README.md`。
 
-## 五、相关文档
+## 七、相关文档
 
 - **`API.md`**(907 行)— NAS 全端点速查 + 字段对照 + 易踩坑(目前覆盖到 §6.3.2)
 - **`MCP.md`** — MCP 58 个 tool 详细文档(参数/返回/NAS 端点/坑)+ 覆盖差距
