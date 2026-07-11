@@ -207,8 +207,8 @@ def dfs_scan(root: str, state: ScanState, video_dirs: list[str]):
             labels_raw = item.get("labels", "")
             labels = labels_raw.strip() if isinstance(labels_raw, str) else ""
             is_labeled = bool(labels)
-            is_video = any(full_path.startswith(d + "/") or full_path == d
-                           or full_path.startswith(d) for d in video_dirs) if video_dirs else False
+            is_video = any(full_path == d or full_path.startswith(d + "/")
+                           for d in video_dirs) if video_dirs else False
 
             if is_video:
                 state.video_hits += 1
