@@ -297,7 +297,7 @@ Content-Type: application/octet-stream
 | `/v2/file/empty_dir` | 找空目录 | | 未测 |
 | `/v2/file/decompress/*` | 解压 | 带密码的 `setpwd` | 未测 |
 | `/v2/compression/*` | 压缩 | | 未测 |
-| `/v2/file/notepad/*` | 笔记 | 需要"保险箱"开启 | 未测 |
+| `/v2/file/notepad/*` | 笔记(保险箱备忘录 + 独立记事本) | `location=2` 独立记事本无需保险箱;`location=1` 需保险箱开启 | 部分测 |
 | `/v2/file/decrypt/download` | 加密文件下载 | | 未测 |
 
 ### 4.5 写 API 字段名易踩坑(参考 skyzhao1223/zspace-cli + 实测)
@@ -323,7 +323,7 @@ Content-Type: application/octet-stream
 
 | 端点 | 用途 | 关键 body |
 |------|------|----------|
-| `/zvideo/classification/list` | 列出所有分类 | `{}` |
+| `/zvideo/classification/list` | 列出所有分类 | `{}` — 元素含 `is_system`(1=系统内置,0=用户)、`is_enable`(1=开,0=用户主动关)、`collection_count`、`series_count`、`id`(UUID) |
 | `/zvideo/classification/dirs` | 列出影视库源目录(所有分类的汇总,无分类维度) | `{}` |
 | `/zvideo/classification/mode` | 当前模式(按分类/按文件夹) | `{}` |
 | `/zvideo/classification/add` | **新建分类** | `classification_name` + `file_path`(可选,实测不真的关联) + `share_users`(JSON 字符串) + `not_scrape`(0/1) |
@@ -438,17 +438,86 @@ Content-Type: application/octet-stream
 | `/v2/crossdevice/backup/list` | 跨设备备份列表 | ✅ `{list, total}`(本机为空) |
 | `/v2/crossdevice/backup/add` / `delete` / `update` / `start` | 备份任务 CRUD | 写 |
 
-### 6.3.2 笔记 `/v2/file/notepad/*`(需要"保险箱"开启)
+### 6.3.2 笔记 `/v2/file/notepad/*`
 
-⚠️ 实测返回 `N001603 保险箱未打开`。用户需要在 NAS UI 里启用保险箱功能。
+NAS 里**两套笔记数据**,端点完全相同,靠 `location` 参数区分:
+
+| `location` | 含义 | 入口 | 启用条件 |
+|------------|------|------|---------|
+| `1`(默认) | **保险箱**里的备忘录 | 保险箱 → 备忘录 tab | ⚠️ 需保险箱开启;否则 `N001603 保险箱未打开` |
+| `2` | **独立记事本应用**(平级于保险箱) | 主菜单 → 记事本 | ✅ 不需要保险箱,直接用 |
+
+> **坑**:不带 `location` 或 `location=1` 在没开保险箱时一律 N001603。
+> 用 `location=2` 才能调到独立记事本。
+>
+> HAR 抓包确认:pcweb 的 `/home/notebook/...` 路由所有 `notepad/*` 请求都带 `location=2`。
+> 编辑器路由:`/home/notebook/notebookEditor?id=N&replace=1&classId=0`(replace=1 表示替换模式)
+
+`classify_id` 语义(实测 + HAR):
+- `classify_id=0` → "全部笔记"(active + 未分类聚合,`classify_name="全部"`)
+- `classify_id>0` → 指定分类 id(只能**直属**该分类,不会递归子分类;要看子分类下的笔记需先 `classifylist` 取子 id)
+- `classify_id=-1` → "**最近删除**"(trash;NAS 内部把所有软删的笔记统一丢进 -1 这个特殊分类,**没有独立的 recycle/recentdelete 端点**)
+- 其他值(`-2/-99` 等实测过):返回 0,不会列别的
+
+**核心发现(trash 怎么列)**: pcweb 的"最近删除"视图就是 `notepad/list?classify_id=-1`,不是某个神秘端点。
+往 `notebook-delete` 写 `ids[]` 即软删(进 trash);再调一次同 id 硬删(不可恢复)。批量用 `ids[]=N&ids[]=M`(PHP 数组,带 `s`,不是 `id[]`)。
 
 | 端点 | 用途 |
 |------|------|
-| `/v2/file/notepad/list` | 笔记列表 |
-| `/v2/file/notepad/info` / `new` / `modify` / `delete` | CRUD |
-| `/v2/file/notepad/classifylist` / `newclassify` / `deleteclassify` | 分类管理 |
-| `/v2/file/notepad/historylist` / `historyinfo` | 历史版本 |
-| `/v2/file/notepad/getconfig` | 配置 |
+| `/v2/file/notepad/list` | 笔记列表(`start/num/classify_id/location`) |
+| `/v2/file/notepad/info` / `new` / `modify` / `delete` | CRUD(`location`) |
+| `/v2/file/notepad/classifylist` / `allclassify` / `newclassify` / `deleteclassify` / `updateclassify` | 分类管理(allclassify=含嵌套,updateclassify=重命名,均带 `location`) |
+
+**分类嵌套(实测)**:
+- `classifylist` 默认只列顶层(`parent_id=0`,带 `child_num`);带 `parent_id=N` 列 N 的直接子节点
+- `allclassify` 返回完整树,**每个节点带 `child[]` 数组**,前端递归聚合即可
+- **笔记 → 叶子分类绑定**:note 的 `classify_id` 等于它所在最小分类的 id(子分类优先,不是父级)
+  - 例:note 在 分类11 视觉目录下,实测 `classify_id=5`(分类11的 id),**不是父级 3**
+  - 所以"父分类下所有笔记"视图,pcweb 是前端聚合:树遍历 + 每个叶子节点调 `list?classify_id=leaf.id`
+  - NAS 端没有"递归 list 父节点下的笔记"端点
+- 新建笔记想进 分类11:`new` 时把 `classify_id` 设为 5,不能设为父级 3
+| `/v2/file/notepad/save_classify_tree` | 保存分类树(拖拽排序,`location`) |
+| `/v2/file/notepad/historylist` / `historyinfo` | 历史版本(`location`);`historylist` ⚠️ 字段名未破(测 id/note_id/nid 全 N001212),需 pcweb HAR 补 |
+| `/v2/file/notepad/getconfig` / `setconfig` | 配置读写(`location`);`setconfig` body 是完整配置 JSON |
+| `/v2/file/notepad/totalsize` | 笔记总占用大小(`location`) |
+| `/v2/file/notepad/searchnotepad` | 搜索笔记(`keyword/location`) |
+| `/v2/file/notepad/movenotepad` | 移动笔记到分类(`id/classify_id/location`) |
+| `/v2/file/notepad/pin` | 置顶/钉选(`id/pin_flag/location`;前端用 `is_top` 自动转) |
+| `/v2/file/notepad/updatelabel` | 更新笔记标签(`id/label/location`;`label=""` 清空) |
+| `/v2/file/notepad/uploadfile` | 上传笔记内嵌附件/图片(`POST`,`multipart/form-data` 字段名 `file`,带 `location`) |
+| `/v2/file/notepad/downloadfile` | 下载笔记附件(`GET`,URL 拼 `?file_id=&location=`) |
+| `/v2/file/notepad/downloadocx` | 下载 Word 导出(`GET`,URL 拼 `?id=&location=`) |
+| `/v2/file/notepad/downloadt` | 下载纯文本导出(`GET`,URL 拼 `?id=&location=`) |
+
+**`/action/notebook-*` 全部 24 个端点(dashboard 完整映射,MCP 友好)**:
+
+读(GET,JSON 返回):
+- `notebook-list` → notepad/list(支持 `start` 分页)
+- `notebook-info` → notepad/info(`id`)
+- `notebook-search` → notepad/searchnotepad(`keyword`);别名 `notebook-searchnotepad`
+- `notebook-getconfig` → notepad/getconfig
+- `notebook-totalsize` → notepad/totalsize
+- `notebook-classifylist` → notepad/classifylist
+- `notebook-allclassify` → notepad/allclassify(嵌套树)
+- `notebook-historylist` → notepad/historylist(⚠️ 字段未破,N001212)
+- `notebook-historyinfo` → notepad/historyinfo(`id` + 可选 `history_id`)
+- `notebook-downloadfile` → notepad/downloadfile(二进制,`file_id`)
+- `notebook-downloadocx` → notepad/downloadocx(二进制 .docx,`id`)
+- `notebook-downloadt` → notepad/downloadt(二进制 .txt,`id`)
+
+写(POST,form-urlencoded):
+- `notebook-new` → notepad/new(`title` + `body` 带 `<h1>` 前缀 + `classify_id`)
+- `notebook-modify` → notepad/modify(`id` + `title` + `body` 带 `<h1>` 前缀)
+- `notebook-delete` / `notebook-delete-batch` → notepad/delete(`ids[]` PHP 数组语法)
+- `notebook-pin` → notepad/pin(`id` + `pin_flag` 1/0;前端表单用 `is_top` 自动转)
+- `notebook-updatelabel` → notepad/updatelabel(`id` + `label`)
+- `notebook-movenotepad` → notepad/movenotepad(`id` + `classify_id`,leaf id)
+- `notebook-newclassify` → notepad/newclassify(`name` + `parent_id` 0=顶级)
+- `notebook-deleteclassify` → notepad/deleteclassify(`classify_id`)
+- `notebook-updateclassify` → notepad/updateclassify(`classify_id` + `new_name`)
+- `notebook-setconfig` → notepad/setconfig(请求体传完整配置 JSON)
+- `notebook-save-classify-tree` → notepad/save_classify_tree(`tree` 字段为完整树 JSON 字符串)
+- `notebook-uploadfile` → notepad/uploadfile(multipart `file` 字段 + `location`)
 
 ### 6.4 用户/权限 `/v2/public/*`(多账号/子账号管理)
 

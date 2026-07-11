@@ -1,0 +1,612 @@
+{% extends "dashboard_base.html" %}
+{% block content %}
+
+<style>
+  .nb-layout { display: grid; grid-template-columns: 240px 1fr; gap: 14px; }
+  .nb-classify { background: #fff; padding: 12px 14px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.04); }
+  .nb-classify h3 { font-size: 13px; margin: 0 0 10px; color: #666; font-weight: 600; }
+  .nb-classify a { display: block; padding: 6px 10px; color: #2c3e50; text-decoration: none; border-radius: 4px; font-size: 13px; margin-bottom: 2px; cursor: pointer; }
+  .nb-classify a:hover { background: #f0f4ff; }
+  .nb-classify a.active { background: #4f8df7; color: #fff; }
+  .nb-classify .count { float: right; opacity: 0.6; font-size: 11px; }
+  .nb-classify .count.warn { background: #fee; color: #c0392b; padding: 1px 6px; border-radius: 8px; }
+  .nb-classify .empty { font-size: 11px; color: #999; padding: 6px 10px; }
+  /* 分类树缩进:每级 16px */
+  .nb-classify a.lvl-0 { padding-left: 10px; }
+  .nb-classify a.lvl-1 { padding-left: 26px; font-size: 12.5px; }
+  .nb-classify a.lvl-2 { padding-left: 42px; font-size: 12px; color: #555; }
+  .nb-classify a.lvl-3 { padding-left: 58px; font-size: 12px; color: #555; }
+  .nb-classify-divider { border-top: 1px dashed #e0e0e0; margin: 8px 0; }
+  .nb-classify-trash { color: #c0392b !important; font-weight: 600; }
+
+  .nb-list { background: #fff; padding: 14px 16px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.04); }
+  .nb-list h3 { font-size: 13px; margin: 0 0 10px; color: #666; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  .nb-list .search { display: flex; gap: 6px; }
+  .nb-list .search input { padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; width: 180px; }
+  .nb-list .search button { padding: 4px 10px; background: #4f8df7; color: #fff; border: 0; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  .nb-list table { margin-top: 6px; }
+  .nb-list td.idx { color: #999; font-family: ui-monospace, monospace; font-size: 11px; width: 50px; }
+  .nb-list td.title { font-weight: 500; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nb-list td.title .pin { color: #f57c00; margin-right: 4px; }
+  .nb-list td.brief { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #888; }
+  .nb-list td.label { font-size: 11px; }
+  .nb-list td.label span { background: #f0f4ff; color: #4f8df7; padding: 1px 6px; border-radius: 8px; margin-right: 2px; }
+  .nb-list td.act { text-align: right; }
+  .nb-list td.act button { padding: 3px 8px; font-size: 11px; background: #f0f4ff; color: #4f8df7; border: 0; border-radius: 3px; cursor: pointer; }
+  .nb-list td.act a { padding: 3px 6px; font-size: 12px; text-decoration: none; background: #fff8e1; color: #f57c00; border-radius: 3px; margin-left: 2px; }
+  .nb-list td.act a:hover { background: #ffe082; }
+  .nb-list td.ntype { font-size: 11px; }
+  .nb-list td.ntype .t0 { color: #888; }
+  .nb-list td.ntype .t1 { color: #27ae60; }
+  .nb-list td.ntype .t2 { color: #8e44ad; }
+
+  .nb-detail { background: #fff; padding: 16px 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.04); display: none; }
+  .nb-detail.show { display: block; }
+  .nb-detail h3 { font-size: 16px; margin: 0 0 4px; color: #2c3e50; }
+  .nb-detail .meta { font-size: 11px; color: #888; margin-bottom: 12px; }
+  .nb-detail .meta span { margin-right: 12px; }
+  .nb-detail .note-content { background: #fafbfc; padding: 14px; border-radius: 6px; max-height: 400px; overflow: auto; font-size: 13px; line-height: 1.7; }
+  .nb-detail .note-content p { margin: 0 0 8px; }
+  .nb-detail .note-content img { max-width: 100%; }
+  .nb-detail .raw-toggle { font-size: 11px; color: #4f8df7; cursor: pointer; margin-left: 8px; }
+  .nb-detail pre.raw { background: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 4px; max-height: 300px; overflow: auto; font-size: 11px; display: none; }
+  .nb-detail pre.raw.show { display: block; }
+  .nb-detail .close { float: right; cursor: pointer; color: #999; font-size: 18px; line-height: 1; }
+</style>
+
+<div class="summary">
+  <h2>📒 独立记事本</h2>
+  <p>
+    数据源:<code>/v2/file/notepad/*</code>(<code>location=2</code>)。
+    这是主菜单里平级于保险箱的独立记事本应用,<b>不需要保险箱开启</b>。
+    端点 <code>location=1</code>(保险箱备忘录)需另开保险箱,本 tab 不涉及。
+  </p>
+</div>
+
+<!-- ============ metric 行 ============ -->
+<h2 class="section">📊 总览 <span class="desc"><code>/v2/file/notepad/totalsize</code> + <code>allclassify</code>(含嵌套)</span></h2>
+<div class="grid">
+  <div class="card">
+    <h3>📝 笔记数</h3>
+    <div class="kv">
+      <div class="k">当前列表</div><div class="v">
+        {% if notelist.code|string == '200' %}
+          {{ (notelist.data.list or []) | length }} 条
+          <span class="small">(共 {{ notelist.data.total or 0 }} 条)</span>
+        {% else %}
+          <span class="pill fail">查询失败</span>
+        {% endif %}
+      </div>
+      <div class="k">自定义分类(顶层)</div><div class="v">
+        {% if allclassify_resp.code|string == '200' %}
+          {{ (classify_tree or []) | length }} 个顶层
+          <span class="small">(嵌套分类见左侧树)</span>
+        {% else %}
+          <span class="pill fail">查询失败</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>💾 总占用大小</h3>
+    <div class="kv">
+      <div class="k">total_size</div><div class="v">
+        {% if totalsize.code|string == '200' %}
+          <code style="font-size:12px;">{{ totalsize.data.total_size or totalsize.data | tojson }}</code>
+        {% else %}
+          <span class="pill fail">{{ totalsize.msg or '失败' }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <p class="small" style="margin:6px 0 0;">单位:字节(用户还没分类)</p>
+  </div>
+  <div class="card">
+    <h3>🔍 读端点状态</h3>
+    <div class="kv" style="font-size:11px;">
+      <div class="k">totalsize</div><div class="v">
+        <span class="pill {{ 'ok' if totalsize.code|string == '200' else 'fail' }}">{{ totalsize.code or '?' }}</span>
+      </div>
+      <div class="k">allclassify</div><div class="v">
+        <span class="pill {{ 'ok' if allclassify_resp.code|string == '200' else 'fail' }}">{{ allclassify_resp.code or '?' }}</span>
+      </div>
+      <div class="k">list(0=全部)</div><div class="v">
+        <span class="pill {{ 'ok' if notelist.code|string == '200' else 'fail' }}">{{ notelist.code or '?' }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 主视图:分类侧栏 + 笔记列表 ============ -->
+<h2 class="section">📋 分类与笔记 <span class="desc">左:分类树(支持嵌套),右:笔记(classify_id=0 = 全部)</span></h2>
+<div class="nb-layout">
+  <div class="nb-classify">
+    <h3>🏷️ 分类</h3>
+    <a class="{{ 'active' if current_classify_id == 0 else '' }}" onclick="loadClass(0); return false;" href="#">
+      📚 全部笔记 <span class="count">id=0</span>
+    </a>
+    {# 递归渲染 allclassify 树(用 macro 在 Python 端递归,避免 JS) #}
+    {% macro render_classify_tree(nodes, current_id, level=0) %}
+      {% for c in nodes %}
+        {% set has_child = (c.child and (c.child|length > 0)) %}
+        <a class="nb-classify-node lvl-{{ level }} {{ 'active' if current_id == c.id else '' }}"
+           onclick="loadClass({{ c.id }}); return false;" href="#"
+           data-classify-id="{{ c.id }}">
+          {% if has_child %}📂{% else %}📁{% endif %} {{ c.name }}
+          {% if has_child %}<span class="count small">{{ c.child|length }} 子</span>{% endif %}
+        </a>
+        {% if has_child %}
+          {{ render_classify_tree(c.child, current_id, level + 1) }}
+        {% endif %}
+      {% endfor %}
+    {% endmacro %}
+    {{ render_classify_tree(classify_tree, current_classify_id) }}
+    {% if not classify_tree %}
+      <p class="empty">(无自定义分类,所有笔记都在"全部")</p>
+    {% endif %}
+    <div class="nb-classify-divider"></div>
+    <a class="nb-classify-trash {{ 'active' if current_classify_id == -1 else '' }}"
+       onclick="loadClass(-1); return false;" href="#" data-classify-id="-1">
+      🗑️ 最近删除 {% if trash_count > 0 %}<span class="count warn">{{ trash_count }}</span>{% endif %}
+    </a>
+  </div>
+
+  <div class="nb-list">
+    <h3>
+      <span>📝 笔记 <span class="small" id="nb-list-count"></span></span>
+      <span class="search">
+        <input id="nb-search-kw" type="text" placeholder="关键词(留空=全部)" />
+        <button onclick="doSearch()">🔍 搜索</button>
+      </span>
+    </h3>
+    <div id="nb-list-body">
+      {% if notelist.code|string == '200' %}
+        {% set notes = notelist.data.list or [] %}
+        {% if notes %}
+          <table>
+            <thead><tr>
+              <th>id</th><th>标题</th><th>类型</th><th>预览</th><th>分类</th><th>标签</th>
+              <th>置顶</th><th>更新时间</th><th></th>
+            </tr></thead>
+            <tbody id="nb-tbody">
+              {% for n in notes %}
+                {% set pin = (n.pin_flag == 1 or n.pin_flag == '1') %}
+                {% set tval = n.note_type|string %}
+                {% set tname = {'0':'纯文本','1':'快捷','2':'Markdown'}.get(tval, tval) %}
+                <tr data-note-id="{{ n.id }}">
+                  <td class="idx">#{{ n.id }}</td>
+                  <td class="title">
+                    {% if pin %}<span class="pin">📌</span>{% endif %}
+                    {{ n.title or '(无标题)' }}
+                  </td>
+                  <td class="ntype"><span class="t{{ tval }}">{{ tname }}</span></td>
+                  <td class="brief" title="{{ n.in_brief or '' }}">{{ n.in_brief or '—' }}</td>
+                  <td class="v" style="font-size:11px;">{{ n.classify_name or '—' }}</td>
+                  <td class="label">
+                    {% if n.label %}
+                      {% for lbl in n.label.split(',') %}{% if lbl.strip() %}<span>{{ lbl.strip() }}</span>{% endif %}{% endfor %}
+                    {% endif %}
+                  </td>
+                  <td>{% if pin %}<span class="pill ok">是</span>{% else %}<span class="pill">否</span>{% endif %}</td>
+                  <td class="v" style="font-size:11px;">{{ n.updated_at or n.created_at or '—' }}{% if n.updated_at %}<br><span class="small">(upd)</span>{% endif %}</td>
+                  <td class="act">
+                    <button onclick="loadNote({{ n.id }})">详情</button>
+                    <a href="/action/notebook-downloadocx?id={{ n.id }}" target="_blank" title="下载 Word(.docx)">📄</a>
+                    <a href="/action/notebook-downloadt?id={{ n.id }}" target="_blank" title="下载纯文本(.txt)">📑</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="small">暂无笔记</p>
+        {% endif %}
+      {% else %}
+        <div class="card fail"><h3>笔记列表接口失败</h3><pre>{{ notelist | tojson(indent=2) }}</pre></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ============ 详情区 ============ -->
+<div class="nb-detail" id="nb-detail">
+  <span class="close" onclick="closeDetail()">×</span>
+  <h3 id="nb-d-title">—</h3>
+  <div class="meta">
+    <span>id: <code id="nb-d-id">—</code></span>
+    <span>类型: <span id="nb-d-type">—</span></span>
+    <span>分类: <span id="nb-d-classify">—</span></span>
+    <span>标签: <span id="nb-d-label">—</span></span>
+    <span>长度: <span id="nb-d-length">—</span></span>
+    <span>更新: <code id="nb-d-utime">—</code></span>
+    <a class="raw-toggle" onclick="toggleRaw()">[原始 JSON]</a>
+    <a class="raw-toggle" onclick="toggleRenderHtml()">[渲染 HTML]</a>
+  </div>
+  <div class="note-content" id="nb-d-content">点击"详情"按钮加载...</div>
+  <pre class="raw" id="nb-d-raw"></pre>
+</div>
+
+<!-- ============ 下载测试区(GET,直接下载,不是写)============ -->
+<h2 class="section">📥 下载测试 <span class="desc">3 个下载端点,直接 GET,新窗口打开/触发下载,不写 NAS</span></h2>
+
+<div class="grid">
+  <!-- 下载 .docx -->
+  <div class="card full">
+    <h3>📄 下载 Word 导出(<code>GET /v2/file/notepad/downloadocx</code>)</h3>
+    <div class="small" style="margin-bottom:10px;color:#666;">
+      字段:<code>id</code>(笔记 id)。NAS 返回 .docx 二进制,带 <code>Content-Disposition</code>。
+      实测 id=4 返回 42KB 真 .docx(Microsoft OOXML)。
+    </div>
+    <div style="display:flex;gap:8px;align-items:end;">
+      <div style="flex:1;">
+        <label class="small">笔记 id</label>
+        <input type="text" id="dl-ocx-id" placeholder="如 4" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+      </div>
+      <button onclick="window.open('/action/notebook-downloadocx?id=' + encodeURIComponent(document.getElementById('dl-ocx-id').value), '_blank')" style="padding:7px 16px;background:#4f8df7;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">📄 下载 .docx</button>
+    </div>
+  </div>
+
+  <!-- 下载 .txt -->
+  <div class="card full">
+    <h3>📑 下载纯文本导出(<code>GET /v2/file/notepad/downloadt</code>)</h3>
+    <div class="small" style="margin-bottom:10px;color:#666;">
+      字段:<code>id</code>(笔记 id)。NAS 返回 .txt 二进制。
+      实测 id=4 返回 69 字节 UTF-8 文本。
+    </div>
+    <div style="display:flex;gap:8px;align-items:end;">
+      <div style="flex:1;">
+        <label class="small">笔记 id</label>
+        <input type="text" id="dl-t-id" placeholder="如 4" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+      </div>
+      <button onclick="window.open('/action/notebook-downloadt?id=' + encodeURIComponent(document.getElementById('dl-t-id').value), '_blank')" style="padding:7px 16px;background:#4f8df7;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">📑 下载 .txt</button>
+    </div>
+  </div>
+
+  <!-- 下载附件 -->
+  <div class="card full">
+    <h3>📎 下载笔记内嵌附件(<code>GET /v2/file/notepad/downloadfile</code>)</h3>
+    <div class="small" style="margin-bottom:10px;color:#666;">
+      字段:<code>file_id</code>(附件 id)。⚠️ <code>file_id</code> 笔记详情接口(info)里**不返回**,需要先上传附件 → 拿返回的 file_id → 再下载。
+      <code>file_id=0</code> 测过返回 N001999(无效 id,NAS 行为)。
+    </div>
+    <div style="display:flex;gap:8px;align-items:end;">
+      <div style="flex:1;">
+        <label class="small">file_id(从 uploadfile 返回值拿)</label>
+        <input type="text" id="dl-file-id" placeholder="如 1" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+      </div>
+      <button onclick="window.open('/action/notebook-downloadfile?file_id=' + encodeURIComponent(document.getElementById('dl-file-id').value), '_blank')" style="padding:7px 16px;background:#4f8df7;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">📎 下载附件</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 写测试区(布局与 storage / zvideo 一致)============ -->
+<h2 class="section">✏️ 写测试 <span class="desc">⚠️ 9 个写 API,字段已确认,点按钮触发单次请求,不会自动执行</span></h2>
+
+<div class="grid">
+  <!-- 新建笔记 -->
+  <div class="card full">
+    <h3>📝 新建笔记(<code>POST /v2/file/notepad/new</code>)</h3>
+    <div id="nb-new-result" class="small" style="margin-bottom:10px;color:#666;">
+      字段:<code>title</code> + <code>body</code>(不是 content!) + <code>in_brief</code>(自动) + <code>classify_id</code>。
+      <strong style="color:#c0392b;">body 必须以 <code>&lt;h1&gt;{title}&lt;/h1&gt;</code> 开头,否则 NAS 不存内容</strong>(实测)。
+    </div>
+    <form onsubmit="return submitForm(event, 'nb-new', '/action/notebook-new');">
+      <div style="display:grid;grid-template-columns:1fr 100px;gap:8px;align-items:end;">
+        <div>
+          <label class="small">标题 title *</label>
+          <input type="text" name="title" value="测试笔记 from dashboard" required style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <div>
+          <label class="small">classify_id</label>
+          <input type="text" name="classify_id" value="0" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+      </div>
+      <label class="small" style="margin-top:6px;display:block;">body(HTML)</label>
+      <textarea name="body" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;min-height:60px;">这是一条从 dashboard 写测试创建的笔记。</textarea>
+      <button type="submit" style="margin-top:8px;padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 执行新建</button>
+    </form>
+  </div>
+
+  <!-- 修改笔记 -->
+  <div class="card full">
+    <h3>✏️ 修改笔记(<code>POST /v2/file/notepad/modify</code>)<span class="pill warn" style="margin-left:8px;">h1 前缀同样需要</span></h3>
+    <div id="nb-modify-result" class="small" style="margin-bottom:10px;color:#666;">
+      字段:<code>id</code> + <code>title</code> + <code>body</code> + <code>in_brief</code>(自动) + <code>location</code>。
+      body 要以 <code>&lt;h1&gt;{新 title}&lt;/h1&gt;</code> 开头,否则会被清空。
+    </div>
+    <form onsubmit="return submitForm(event, 'nb-modify', '/action/notebook-modify');">
+      <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:end;">
+        <div>
+          <label class="small">id *</label>
+          <input type="text" name="id" placeholder="从列表复制" required style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <div>
+          <label class="small">新 title *</label>
+          <input type="text" name="title" value="改后的标题" required style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+      </div>
+      <label class="small" style="margin-top:6px;display:block;">新 body(HTML)</label>
+      <textarea name="body" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;min-height:60px;">改后的内容 &lt;b&gt;可写 HTML&lt;/b&gt;</textarea>
+      <button type="submit" style="margin-top:8px;padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 执行修改</button>
+    </form>
+  </div>
+
+  <!-- 删除笔记(单/批) -->
+  <div class="card full">
+    <h3>🗑️ 删除笔记(<code>POST /v2/file/notepad/delete</code>)<span class="pill fail" style="margin-left:8px;">不可逆</span><span class="pill ok" style="margin-left:8px;">支持批量</span></h3>
+    <div id="nb-delete-result" class="small" style="margin-bottom:10px;color:#666;">
+      字段:<strong><code>ids[]</code></strong>(带 <code>s</code>,PHP 数组语法,实测发现的坑,不是 <code>ids</code> 也不是 <code>id[]</code>)。
+      多个用逗号分隔(如 <code>3,4</code>),单条写一个也行。
+      同一个 id 删两次:第一次移到 trash(<code>classify_id=-1</code>),第二次永久删除,不可恢复。
+    </div>
+    <form onsubmit="return submitForm(event, 'nb-delete', '/action/notebook-delete-batch');">
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+        <div>
+          <label class="small">ids(多个用逗号)</label>
+          <input type="text" name="ids" placeholder="如 3 或 11,12,18" required style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <button type="submit" style="padding:7px 16px;background:#c0392b;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">🗑️ 执行删除</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 置顶 -->
+  <div class="card full">
+    <h3>📌 置顶 / 取消置顶(<code>POST /v2/file/notepad/pin</code>)</h3>
+    <div id="nb-pin-result" class="small" style="margin-bottom:10px;color:#666;">
+      字段:<code>id</code> + <code>pin_flag</code>(1=置顶, 0=取消)。注意 NAS 字段名是 <code>pin_flag</code>,前端 form 字段用 <code>is_top</code> 自动转。
+    </div>
+    <form onsubmit="return submitForm(event, 'nb-pin', '/action/notebook-pin');">
+      <div style="display:grid;grid-template-columns:1fr 150px auto;gap:8px;align-items:end;">
+        <div>
+          <label class="small">id *</label>
+          <input type="text" name="id" placeholder="从列表复制" required style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <div>
+          <label class="small">pin_flag</label>
+          <select name="is_top" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+            <option value="1">1 = 置顶</option>
+            <option value="0">0 = 取消置顶</option>
+          </select>
+        </div>
+        <button type="submit" style="padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 执行置顶</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 更新标签 -->
+  <div class="card full">
+    <h3>🏷️ 更新标签(<code>POST /v2/file/notepad/updatelabel</code>)</h3>
+    <div id="nb-label-result" class="small" style="margin-bottom:10px;color:#666;">
+      字段:<code>id</code> + <code>label</code>(逗号分隔多个,空字符串 = 清空)。注意列表字段叫 <code>label</code>,详情里叫 <code>label_id</code>。
+    </div>
+    <form onsubmit="return submitForm(event, 'nb-label', '/action/notebook-updatelabel');">
+      <div style="display:grid;grid-template-columns:120px 1fr auto;gap:8px;align-items:end;">
+        <div>
+          <label class="small">id *</label>
+          <input type="text" name="id" placeholder="从列表复制" required style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <div>
+          <label class="small">label(逗号分隔或空清空)</label>
+          <input type="text" name="label" value="测试,dashboard" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <button type="submit" style="padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 执行改标签</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 移动到分类 -->
+  <div class="card full">
+    <h3>➡️ 移动到分类(<code>POST /v2/file/notepad/movenotepad</code>)</h3>
+    <div id="nb-move-result" class="small" style="margin-bottom:10px;color:#666;">
+      字段:<code>id</code> + <code>classify_id</code>(目标分类 id)。子分类优先:把笔记放进 <code>分类11</code> 时,id 填 <code>5</code>,不能填父级 <code>3</code>。
+    </div>
+    <form onsubmit="return submitForm(event, 'nb-move', '/action/notebook-movenotepad');">
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;">
+        <div>
+          <label class="small">id *</label>
+          <input type="text" name="id" placeholder="从列表复制" required style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <div>
+          <label class="small">classify_id *</label>
+          <input type="text" name="classify_id" placeholder="目标分类 id" required style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <button type="submit" style="padding:7px 16px;background:#e74c3c;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">➡️ 执行移动</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 新建分类 -->
+  <div class="card full">
+    <h3>📁 新建分类(<code>POST /v2/file/notepad/newclassify</code>)</h3>
+    <div id="nb-newcls-result" class="small" style="margin-bottom:10px;color:#666;">
+      字段:<code>name</code> + <code>parent_id</code>(0=顶级分类,<code>&gt;0</code>=父分类的 id 实现嵌套)。
+    </div>
+    <form onsubmit="return submitForm(event, 'nb-newcls', '/action/notebook-newclassify');">
+      <div style="display:grid;grid-template-columns:1fr 120px auto;gap:8px;align-items:end;">
+        <div>
+          <label class="small">name *</label>
+          <input type="text" name="name" value="test_cls" required style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <div>
+          <label class="small">parent_id(0=顶级)</label>
+          <input type="text" name="parent_id" value="0" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <button type="submit" style="padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 执行新建分类</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 删除分类 -->
+  <div class="card full">
+    <h3>🗑️ 删除分类(<code>POST /v2/file/notepad/deleteclassify</code>)<span class="pill fail" style="margin-left:8px;">分类下笔记会被处理</span></h3>
+    <div id="nb-delcls-result" class="small" style="margin-bottom:10px;color:#666;">
+      字段:<code>classify_id</code>。删除后该分类下笔记失去归属(进 trash 还是变 <code>classify_id=0</code> 待测)。
+    </div>
+    <form onsubmit="return submitFormConfirm(event, 'nb-delcls', '/action/notebook-deleteclassify', '确认删除这个分类?里面的笔记会被处理!');">
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+        <div>
+          <label class="small">classify_id *</label>
+          <input type="text" name="classify_id" placeholder="从左侧分类栏复制" required style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <button type="submit" style="padding:7px 16px;background:#c0392b;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">🗑️ 执行删除分类</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 重命名分类 -->
+  <div class="card full">
+    <h3>✏️ 重命名分类(<code>POST /v2/file/notepad/updateclassify</code>)</h3>
+    <div id="nb-updcls-result" class="small" style="margin-bottom:10px;color:#666;">
+      字段:<code>classify_id</code> + <code>new_name</code>。
+    </div>
+    <form onsubmit="return submitForm(event, 'nb-updcls', '/action/notebook-updateclassify');">
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;">
+        <div>
+          <label class="small">classify_id *</label>
+          <input type="text" name="classify_id" placeholder="从左侧分类栏复制" required style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <div>
+          <label class="small">new_name *</label>
+          <input type="text" name="new_name" value="重命名后的名字" required style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <button type="submit" style="padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 执行重命名</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+async function loadClass(classifyId) {
+  document.querySelectorAll('.nb-classify a').forEach(a => a.classList.remove('active'));
+  const target = document.querySelector(`.nb-classify a[data-classify-id="${classifyId}"]`)
+    || document.querySelector('.nb-classify a');
+  if (target) target.classList.add('active');
+
+  const body = document.getElementById('nb-list-body');
+  body.innerHTML = '<p class="small">⏳ 加载中...</p>';
+  try {
+    const r = await fetch(`/action/notebook-list?classify_id=${classifyId}&_=${Date.now()}`);
+    const j = await r.json();
+    renderNoteList(j, classifyId);
+  } catch (e) {
+    body.innerHTML = '<div class="card fail"><h3>请求失败</h3><pre>' + e + '</pre></div>';
+  }
+}
+
+function renderNoteList(j, classifyId) {
+  const body = document.getElementById('nb-list-body');
+  if (!j || String(j.code) !== '200') {
+    body.innerHTML = '<div class="card fail"><h3>笔记列表接口失败</h3><pre>' + JSON.stringify(j, null, 2) + '</pre></div>';
+    return;
+  }
+  const list = (j.data && j.data.list) || [];
+  document.getElementById('nb-list-count').textContent = `(${list.length} 条 / 共 ${j.data.total || 0})`;
+  if (list.length === 0) {
+    body.innerHTML = '<p class="small">该分类下暂无笔记</p>';
+    return;
+  }
+  const tnameMap = {'0':'纯文本','1':'快捷','2':'Markdown'};
+  let html = '<table><thead><tr><th>id</th><th>标题</th><th>类型</th><th>预览</th><th>分类</th><th>标签</th><th>置顶</th><th>更新时间</th><th></th></tr></thead><tbody>';
+  for (const n of list) {
+    const pin = (n.pin_flag == 1 || n.pin_flag == '1');
+    const pinIcon = pin ? '📌' : '';
+    const pinPill = pin ? '<span class="pill ok">是</span>' : '<span class="pill">否</span>';
+    const tval = String(n.note_type || '');
+    const tname = tnameMap[tval] || tval;
+    let labelHtml = '—';
+    if (n.label) labelHtml = n.label.split(',').filter(x => x.trim()).map(l => `<span>${escapeHtml(l.trim())}</span>`).join('');
+    html += `<tr data-note-id="${n.id}">
+      <td class="idx">#${n.id}</td>
+      <td class="title">${pinIcon}${escapeHtml(n.title || '(无标题)')}</td>
+      <td class="ntype"><span class="t${tval}">${tname}</span></td>
+      <td class="brief" title="${escapeHtml(n.in_brief || '')}">${escapeHtml(n.in_brief || '—')}</td>
+      <td class="v" style="font-size:11px;">${escapeHtml(n.classify_name || '—')}</td>
+      <td class="label">${labelHtml}</td>
+      <td>${pinPill}</td>
+      <td class="v" style="font-size:11px;">${escapeHtml(n.updated_at || n.created_at || '—')}</td>
+      <td class="act"><button onclick="loadNote(${n.id})">详情</button><a href="/action/notebook-downloadocx?id=${n.id}" target="_blank" title="下载 Word(.docx)">📄</a><a href="/action/notebook-downloadt?id=${n.id}" target="_blank" title="下载纯文本(.txt)">📑</a></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+async function loadNote(id) {
+  const panel = document.getElementById('nb-detail');
+  panel.classList.add('show');
+  document.getElementById('nb-d-content').innerHTML = '<p class="small">⏳ 加载中...</p>';
+  document.getElementById('nb-d-raw').textContent = '';
+  try {
+    const r = await fetch(`/action/notebook-info?id=${id}&_=${Date.now()}`);
+    const j = await r.json();
+    if (String(j.code) !== '200') {
+      document.getElementById('nb-d-content').innerHTML =
+        '<div class="card fail"><h3>详情失败</h3><pre>' + JSON.stringify(j, null, 2) + '</pre></div>';
+      return;
+    }
+    const d = j.data || {};
+    document.getElementById('nb-d-title').textContent = d.title || '(无标题)';
+    document.getElementById('nb-d-id').textContent = d.id || id;
+    const tnameMap = {'0':'纯文本','1':'快捷','2':'Markdown'};
+    document.getElementById('nb-d-type').textContent = tnameMap[String(d.note_type)] || (d.note_type || '—');
+    document.getElementById('nb-d-classify').textContent = d.classify_name || d.classify_id || '—';
+    // info 接口的 label 字段叫 label_id(注意:list 接口的字段叫 label)
+    document.getElementById('nb-d-label').textContent = d.label_id || d.label || '—';
+    document.getElementById('nb-d-length').textContent = (d.length || 0) + ' 字节';
+    document.getElementById('nb-d-utime').textContent = d.updated_at || '—';
+    // content 字段在 info 接口叫 body
+    // 默认转义成纯文本显示(防 XSS);需要渲染原始 HTML 时点 [渲染 HTML] 切换
+    window._nbRawBody = d.body || '';
+    document.getElementById('nb-d-content').textContent = d.body || '(无内容)';
+    document.getElementById('nb-d-raw').textContent = JSON.stringify(j, null, 2);
+    panel.scrollIntoView({behavior: 'smooth', block: 'start'});
+  } catch (e) {
+    document.getElementById('nb-d-content').textContent = String(e);
+  }
+}
+
+function closeDetail() {
+  document.getElementById('nb-detail').classList.remove('show');
+}
+function toggleRaw() {
+  document.getElementById('nb-d-raw').classList.toggle('show');
+}
+// 在"纯文本(安全,默认)"和"渲染原始 HTML(笔记是富文本)"之间切换
+function toggleRenderHtml() {
+  const el = document.getElementById('nb-d-content');
+  // 若当前是文本模式(用 textContent 存的),切到渲染;反之切回文本
+  if (el.dataset.rendered === '1') {
+    el.dataset.rendered = '0';
+    el.textContent = window._nbRawBody || '(无内容)';
+  } else {
+    el.dataset.rendered = '1';
+    el.innerHTML = window._nbRawBody || '<p class="small">(无内容)</p>';
+  }
+}
+
+async function doSearch() {
+  const kw = document.getElementById('nb-search-kw').value.trim();
+  if (!kw) { loadClass(0); return; }
+  const body = document.getElementById('nb-list-body');
+  body.innerHTML = '<p class="small">⏳ 搜索 "' + escapeHtml(kw) + '"...</p>';
+  try {
+    const r = await fetch(`/action/notebook-search?keyword=${encodeURIComponent(kw)}&_=${Date.now()}`);
+    const j = await r.json();
+    renderNoteList(j, 'search');
+  } catch (e) {
+    body.innerHTML = '<div class="card fail"><h3>搜索失败</h3><pre>' + e + '</pre></div>';
+  }
+}
+
+document.getElementById('nb-search-kw').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+});
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+
+{% endblock %}

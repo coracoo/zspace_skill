@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body { font: 13px/1.5 system-ui, sans-serif; max-width: 640px; margin: 16px auto; padding: 0 16px; }
+    h1 { font-size: 16px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 12px; }
+    th, td { border: 1px solid #ccc; padding: 4px 6px; font-size: 13px; }
+    th { background: #eee; }
+    input[type="number"], input[type="text"] { width: 100%; box-sizing: border-box; }
+    button { padding: 6px 12px; margin-right: 8px; cursor: pointer; }
+    .toolbar { margin-top: 12px; }
+    .help { background: #f5f5f5; padding: 8px; border-radius: 4px; font-size: 12px; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>⚙️ ZSpace Remote Access 白名单</h1>
+  <p class="help">
+    每条对应一个 zos 公网代理 URL:<br>
+    <code>https://remote-access-{port}.zconnect.cn/</code> → NAS <code>{host}:{port}</code><br>
+    端口必须在 NAS 远程访问白名单中,否则代理 502/403。
+  </p>
+  <table id="tbl">
+    <thead><tr><th>端口</th><th>内网 host</th><th>标签(可选)</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button id="add">+ 添加</button>
+  <button id="save">💾 保存</button>
+  <button id="reset">↺ 恢复默认</button>
+  <div id="status" style="margin-top:12px;color:green;"></div>
+  <script src="options.js"></script>
+</body>
+</html>

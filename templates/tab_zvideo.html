@@ -1,0 +1,126 @@
+{% extends "dashboard_base.html" %}
+{% block content %}
+
+<div class="summary">
+  <h2>🎬 极影视</h2>
+  <p>分类管理(<code>/zvideo/classification/list</code>)+ 源目录(<code>/zvideo/classification/dirs</code>)+ 影视分类写测试</p>
+</div>
+
+<!-- ============ 极影视分类 ============ -->
+<h2 class="section">🏷️ 影视分类 <span class="desc">数据来源:<code>/zvideo/classification/list</code></span></h2>
+{% if zvideo_classes.code|string == '200' %}
+  {% set classes = zvideo_classes.data or [] %}
+  {% set enabled_classes = classes | selectattr('is_enable', 'equalto', 1) | list %}
+  <div class="grid">
+    <div class="card">
+      <h3>分类概览</h3>
+      <div class="kv">
+        <div class="k">总分类数</div><div class="v">{{ classes | length }}</div>
+        <div class="k">已启用</div><div class="v"><span class="pill ok">{{ enabled_classes | length }}</span></div>
+        <div class="k">已禁用</div><div class="v"><span class="pill">{{ classes | length - enabled_classes | length }}</span></div>
+      </div>
+    </div>
+
+    <div class="card full">
+      <h3>📋 分类详情</h3>
+      <table>
+        <thead><tr><th>分类名</th><th>状态</th><th>类型</th><th>剧集数</th><th>合集数</th><th>分享用户</th></tr></thead>
+        <tbody>
+        {% for c in classes %}
+          <tr>
+            <td><strong>{{ c.name }}</strong></td>
+            <td>
+              {% if c.is_enable == 1 %}
+                <span class="pill ok">启用</span>
+              {% else %}
+                <span class="pill">禁用</span>
+              {% endif %}
+            </td>
+            <td>{% if c.is_system == 1 %}系统{% else %}自定义{% endif %}</td>
+            <td>{{ c.series_count }}</td>
+            <td>{{ c.collection_count }}</td>
+            <td class="v" style="font-size:11px;">{{ c.share_users | join(', ') or '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% else %}
+  <div class="card fail"><h3>极影视分类接口失败</h3><pre>{{ zvideo_classes | tojson(indent=2) }}</pre></div>
+{% endif %}
+
+<!-- ============ 源目录 ============ -->
+<h2 class="section">📂 影视库源目录 <span class="desc">数据来源:<code>/zvideo/classification/dirs</code></span></h2>
+{% if zvideo_dirs.code|string == '200' %}
+  {% set dirs = zvideo_dirs.data or [] %}
+  <div class="card full">
+    <h3>共 {{ dirs | length }} 个</h3>
+    {% if dirs %}
+    <table>
+      <thead><tr><th>路径</th><th>所属分类</th></tr></thead>
+      <tbody>
+      {% for d in dirs %}
+        <tr><td class="v">{{ d.path if d.path else d }}</td><td>{{ d.classification_name or d.name or '—' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="small">无源目录</p>
+    {% endif %}
+  </div>
+{% endif %}
+
+<!-- ============ 影视写测试 ============ -->
+<h2 class="section">✏️ 影视分类写测试 <span class="desc">⚠️ 这些操作会真实写入 NAS,谨慎使用</span></h2>
+
+<div class="grid">
+  <!-- 建分类 -->
+  <div class="card full">
+    <h3>🎬 建极影视分类(<code>POST /zvideo/classification/add</code>)</h3>
+    <div id="classify-result" class="small" style="margin-bottom:10px;color:#666;">
+      当前状态:{% if test_class_exists %}<span class="pill ok">test 分类已存在</span>{% else %}<span class="pill">test 分类不存在</span>{% endif %}
+      <span class="small">注意:此 API 只建分类,不会真的关联目录;关联要用下面的"加目录到分类"</span>
+    </div>
+    <form id="classify-form" onsubmit="return submitClassify(event);">
+      <div style="display:grid;grid-template-columns:150px 1fr auto;gap:8px;align-items:end;">
+        <div>
+          <label class="small">分类名(classification_name)</label>
+          <input type="text" name="classification_name" value="test" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <div>
+          <label class="small">关联目录(file_path,可选,不会被实际关联)</label>
+          <input type="text" name="file_path" value="/sata14/my/data/备份/test" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <button type="submit" style="padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 执行写入</button>
+      </div>
+      <label class="small" style="margin-top:6px;display:block;">
+        <input type="checkbox" name="not_scrape" value="1" checked> 不刮削(not_scrape,避免 NAS 试图去 TMDB 查询)
+      </label>
+    </form>
+  </div>
+
+  <!-- 加目录到分类 -->
+  <div class="card full">
+    <h3>📂 加目录到极影视分类(<code>POST /zvideo/classification/increase</code>)<span class="pill ok" style="margin-left:8px;">已破解</span></h3>
+    <div id="link-result" class="small" style="margin-bottom:10px;color:#666;">
+      关键字段名:<code>file_path[]</code>(PHP 数组语法,不是 file_path)。
+      N120019 = 已关联(成功);N120020 = 字段名错。
+    </div>
+    <form id="link-form" onsubmit="return submitLink(event);">
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;">
+        <div>
+          <label class="small">分类 ID(classification_id,UUID)</label>
+          <input type="text" name="classification_id" value="ac9c4e56-4725-42a9-b942-40e7d42b0967" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <div>
+          <label class="small">目录路径(file_path)</label>
+          <input type="text" name="file_path" value="/sata14/my/data/备份/test" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <button type="submit" style="padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 执行写入</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

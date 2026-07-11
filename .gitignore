@@ -5,7 +5,11 @@ __pycache__/
 *.pyd
 *.egg-info/
 .env
+logs/
 .DS_Store
 *.swp
 *~
 .pcweb*.js
+
+# RAG 语义搜索向量索引(rag/store.py 默认写到 ~/.cache/zspace-rag/rag.db)
+.cache/zspace-rag/

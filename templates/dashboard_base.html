@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>ZSpace NAS · 数据看板</title>
+<style>
+  body { font: 14px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f4f5f7; margin: 0; padding: 0; color: #333; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
+  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+  header h1 { font-size: 19px; margin: 0; }
+  header .right { font-size: 12px; color: #888; }
+  header .right a { color: #c0392b; text-decoration: none; margin-left: 12px; }
+
+  .summary { background: linear-gradient(135deg,#e8f5e9,#f1f8e9); padding: 14px 18px; border-radius: 8px; margin-bottom: 18px; border-left: 4px solid #27ae60; }
+  .summary h2 { margin: 0 0 6px; font-size: 14px; color: #27ae60; }
+  .summary p { margin: 0; font-size: 13px; color: #555; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 2px solid #e0e0e0; }
+  .tabs a { padding: 10px 18px; font-size: 14px; color: #666; text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color .15s, border-color .15s; }
+  .tabs a:hover { color: #2c3e50; }
+  .tabs a.active { color: #2c3e50; border-bottom-color: #4f8df7; font-weight: 600; }
+  .tabs a .badge { display: inline-block; padding: 1px 7px; border-radius: 9px; font-size: 10px; background: #fee; color: #c0392b; margin-left: 4px; vertical-align: middle; }
+
+  h2.section { font-size: 16px; margin: 24px 0 12px; padding-bottom: 6px; border-bottom: 2px solid #e0e0e0; color: #2c3e50; }
+  h2.section .desc { font-size: 12px; color: #888; font-weight: normal; margin-left: 8px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .card { background: #fff; padding: 14px 16px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.04); }
+  .card.full { grid-column: 1 / -1; }
+  .card h3 { font-size: 13px; margin: 0 0 10px; color: #666; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  th { font-weight: 600; color: #555; background: #fafbfc; font-size: 12px; }
+  td.v { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+  .kv { display: grid; grid-template-columns: 100px 1fr; gap: 4px 12px; font-size: 13px; }
+  .kv .k { color: #888; }
+  .kv .v { font-weight: 500; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; }
+  .pill.ok { background: #e6f9ee; color: #27ae60; }
+  .pill.warn { background: #fff8e1; color: #f57c00; }
+  .pill.fail { background: #fde8e8; color: #c0392b; }
+  pre { background: #f7f7f9; padding: 8px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 200px; margin: 0; }
+  .small { font-size: 11px; color: #888; }
+  .file-form { background: #fff; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.04); }
+  .file-form input[type=text] { flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 13px; }
+  .file-form button { padding: 7px 16px; background: #4f8df7; color: #fff; border: 0; border-radius: 4px; cursor: pointer; font-size: 13px; }
+  .file-form .hint { font-size: 11px; color: #888; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📊 ZSpace NAS 数据看板</h1>
+    <div class="right">
+      👤 <b>{{ user.username }}</b>(id={{ user.profile.id }}, 昵称 {{ user.profile.nickname }}, {% if user.profile.is_master == 1 %}主账号{% else %}子账号{% endif %})
+      <a href="/logout">退出</a>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <a href="/dashboard/overview" class="{{ 'active' if active_tab == 'overview' else '' }}">📈 总览</a>
+    <a href="/dashboard/storage" class="{{ 'active' if active_tab == 'storage' else '' }}">💾 存储</a>
+    <a href="/dashboard/zvideo" class="{{ 'active' if active_tab == 'zvideo' else '' }}">🎬 极影视</a>
+    <a href="/dashboard/notebook" class="{{ 'active' if active_tab == 'notebook' else '' }}">📒 记事本</a>
+  </nav>
+
+  {% block content %}{% endblock %}
+
+  <details style="margin-top:24px;">
+    <summary class="small">🔧 调试信息(session cookie keys)</summary>
+    <p>{% for k in cookies_keys %}<span class="pill ok" style="margin-right:6px;">{{ k }}</span>{% endfor %}</p>
+  </details>
+</div>
+
+<script>
+// HTML 转义,避免 NAS 返回的 msg(可能回显用户输入)造成 XSS
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+// ============= 通用表单提交 =============
+async function submitForm(e, kind, url) {
+  e.preventDefault();
+  const form = e.target;
+  const data = new FormData(form);
+  const result = document.getElementById(kind + '-result');
+  const btn = form.querySelector('button');
+  const origText = btn.textContent;
+  btn.disabled = true; btn.textContent = '执行中...';
+  result.innerHTML = '<span class="pill">⏳ 调用 NAS API...</span>';
+  try {
+    const r = await fetch(url, {method: 'POST', body: data});
+    const j = await r.json();
+    const code = String(j.code || j._status || '?');
+    const ok = code === '200';
+    result.innerHTML = (ok ? '<span class="pill ok">✓ code=' + escapeHtml(code) + '</span>' : '<span class="pill fail">✗ code=' + escapeHtml(code) + '</span>')
+      + ' msg=' + escapeHtml(j.msg || '') + '<pre style="margin-top:8px;background:#f7f7f9;padding:8px;border-radius:4px;font-size:11px;max-height:240px;overflow:auto;">' + escapeHtml(JSON.stringify(j, null, 2)) + '</pre>';
+  } catch (err) {
+    result.innerHTML = '<span class="pill fail">⚠ ' + escapeHtml(err) + '</span>';
+  } finally {
+    btn.disabled = false; btn.textContent = origText;
+  }
+  return false;
+}
+async function submitFormConfirm(e, kind, url, msg) {
+  if (!confirm(msg)) return false;
+  return submitForm(e, kind, url);
+}
+async function submitMkdir(e) {
+  return submitForm(e, 'mkdir', '/action/mkdir');
+}
+async function submitClassify(e) {
+  return submitForm(e, 'classify', '/action/add-classification');
+}
+async function submitLink(e) {
+  e.preventDefault();
+  const form = e.target;
+  const data = new FormData(form);
+  const result = document.getElementById('link-result');
+  const btn = form.querySelector('button');
+  btn.disabled = true; btn.textContent = '执行中...';
+  result.innerHTML = '<span class="pill">⏳ 调用 NAS API...</span>';
+  try {
+    const r = await fetch('/action/link-folder', {method: 'POST', body: data});
+    const j = await r.json();
+    const code = String(j.code || j._status || '?');
+    const ok = code === '200' || code === 'N120019';
+    result.innerHTML = (ok ? '<span class="pill ok">✓ code=' + escapeHtml(code) + '</span>' : '<span class="pill fail">✗ code=' + escapeHtml(code) + '</span>')
+      + ' msg=' + escapeHtml(j.msg || '') + '<pre style="margin-top:8px;background:#f7f7f9;padding:8px;border-radius:4px;font-size:11px;max-height:240px;overflow:auto;">' + escapeHtml(JSON.stringify(j, null, 2)) + '</pre>';
+  } catch (err) {
+    result.innerHTML = '<span class="pill fail">⚠ ' + escapeHtml(err) + '</span>';
+  } finally {
+    btn.disabled = false; btn.textContent = '⚠️ 执行写入';
+  }
+  return false;
+}
+
+// ============= 性能监控自动刷新 =============
+async function refreshPerf() {
+  try {
+    const r = await fetch('/api/perf?_=' + Date.now());
+    const j = await r.json();
+    if (j.error) return;
+    const tsEl = document.getElementById('perf-ts');
+    const ageEl = document.getElementById('perf-age');
+    if (tsEl) tsEl.textContent = new Date(j.ts * 1000).toLocaleTimeString();
+    if (ageEl) ageEl.textContent = 'just refreshed';
+  } catch (e) {}
+}
+setInterval(refreshPerf, 10000);
+</script>
+</body>
+</html>

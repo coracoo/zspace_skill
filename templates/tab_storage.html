@@ -1,0 +1,222 @@
+{% extends "dashboard_base.html" %}
+{% block content %}
+
+<div class="summary">
+  <h2>💾 存储</h2>
+  <p>存储池(<code>/zspool/info</code>)+ 文件夹浏览(<code>/v2/file/list</code>)+ 文件写测试</p>
+</div>
+
+<!-- ============ 存储池 ============ -->
+<h2 class="section">💾 存储池 <span class="desc">数据来源:<code>/zspool/info</code> + <code>/zspool/hardware/info</code></span></h2>
+{% if zspool_info.code|string == '200' %}
+<div class="grid">
+  {% for pool in zspool_info.data.pool_list %}
+  <div class="card">
+    <h3>📦 {{ pool.name }}
+      <span class="pill {{ 'ok' if pool.status == 'ok' else 'fail' }}" style="margin-left:8px;">{{ pool.status }}</span>
+      {% if pool.encrypted == 1 %}<span class="pill warn" style="margin-left:4px;">已加密</span>{% endif %}
+    </h3>
+    <div class="kv">
+      <div class="k">类型</div><div class="v">{{ pool.pool_type }} / {{ pool.protocol }}</div>
+      <div class="k">总容量</div><div class="v">{{ pool.total_size | fmt_bytes }}</div>
+      <div class="k">已用</div><div class="v">{{ pool.usage_size | fmt_bytes }}</div>
+      <div class="k">可用</div><div class="v">{{ pool.free_size | fmt_bytes }}</div>
+      <div class="k">使用率</div><div class="v">
+        {% set usage_pct = (pool.usage_size | float) / (pool.total_size | float) * 100 %}
+        <span class="pill {{ 'fail' if usage_pct > 85 else 'warn' if usage_pct > 70 else 'ok' }}">{{ '%.1f' | format(usage_pct) }}%</span>
+      </div>
+      <div class="k">硬盘数</div><div class="v">{{ pool.disk_list | length }} 块</div>
+    </div>
+    {% if pool.disk_list %}
+    <table style="margin-top:10px;">
+      <thead><tr><th>槽位</th><th>型号</th><th>SN</th><th>容量</th><th>温度</th><th>健康</th></tr></thead>
+      <tbody>
+      {% for d in pool.disk_list %}
+        <tr>
+          <td>#{{ d.pos }}</td>
+          <td class="v" style="font-size:11px;">{{ d.model }}</td>
+          <td class="v">{{ d.sn }}</td>
+          <td class="v">{{ d.total_size | fmt_bytes }}</td>
+          <td>
+            {% set t = d.temp | int %}
+            <span class="pill {{ 'fail' if t > 55 else 'warn' if t > 45 else 'ok' }}">{{ d.temp }}°C</span>
+          </td>
+          <td><span class="pill {{ 'ok' if d.health == 'ok' else 'fail' }}">{{ d.health }}</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% if zspool_hw.code|string == '200' %}
+<div class="card full" style="margin-top:14px;">
+  <h3>🔌 硬件槽位</h3>
+  <div class="kv" style="grid-template-columns: 80px 1fr;">
+    <div class="k">SATA 槽</div><div class="v">{{ zspool_hw.data.slot.sata }} 个</div>
+    <div class="k">NVMe 槽</div><div class="v">{{ zspool_hw.data.slot.nvme }} 个</div>
+    <div class="k">eSATA</div><div class="v">{{ zspool_hw.data.slot.esata }} 个</div>
+  </div>
+</div>
+{% endif %}
+{% else %}
+<div class="card fail"><h3>存储池接口失败</h3><pre>{{ zspool_info | tojson(indent=2) }}</pre></div>
+{% endif %}
+
+<!-- ============ 文件夹(只读,可下转) ============ -->
+<h2 class="section">📁 文件夹(只读)<span class="desc">数据来源:<code>/v2/file/list</code>,路径格式 <code>/池名/my/子目录/</code>。点文件夹名可进入</span></h2>
+
+<!-- 面包屑导航 -->
+<div class="card full" style="margin-bottom:12px;padding:10px 14px;">
+  <div class="breadcrumb" style="font-size:13px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;">
+    {% for crumb in breadcrumb %}
+      {% if not loop.last %}
+        <a href="/dashboard/storage?path={{ crumb.path | urlencode }}" style="color:#4f8df7;text-decoration:none;">{{ crumb.name }}</a>
+        <span style="color:#aaa;">/</span>
+      {% else %}
+        <strong style="color:#2c3e50;">{{ crumb.name }}</strong>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+<form class="file-form" method="get" action="/dashboard/storage">
+  <label style="font-size:12px;color:#555;">路径:</label>
+  <input type="text" name="path" value="{{ file_path }}" placeholder="/sata14/my/data/">
+  <button type="submit">浏览</button>
+  <span class="hint">💡 只能看自己 <code>/池名/my/</code> 下的内容</span>
+</form>
+
+<div class="card full">
+  {% if file_resp.code|string == '200' %}
+    {% set items = file_resp.data.list or [] %}
+    <h3>📂 <code>{{ file_path }}</code> · 共 {{ file_resp.data.total }} 项</h3>
+    {% if items %}
+    <table>
+      <thead>
+        <tr>
+          <th>名称</th>
+          <th>类型</th>
+          <th>大小</th>
+          <th>修改时间</th>
+          <th>所有者</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for it in items %}
+        <tr>
+          <td>
+            {% if it.is_dir == '1' %}
+              📁 <a href="/dashboard/storage?path={{ (it.path | urlencode) }}/" style="color:#4f8df7;text-decoration:none;font-weight:500;">{{ it.name }}</a>
+            {% else %}
+              📄 {{ it.name }}
+            {% endif %}
+          </td>
+          <td>{% if it.is_dir == '1' %}文件夹{% else %}{{ it.ext or '文件' }}{% endif %}</td>
+          <td class="v">{% if it.is_dir == '1' %}—{% else %}{{ it.size | fmt_bytes }}{% endif %}</td>
+          <td class="v">{% if it.modify_time and it.modify_time != '0' %}{{ it.modify_time | int | datetime_local }}{% else %}—{% endif %}</td>
+          <td>{{ it.username or '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="small">该目录为空</p>
+    {% endif %}
+  {% else %}
+    <h3 style="color:#c0392b;">❌ 列表失败</h3>
+    <p>code={{ file_resp.code }} msg={{ file_resp.msg }}</p>
+    <p class="small">提示:用户只能浏览自己 <code>/池名/my/</code> 目录下的内容。常见可用路径:<code>/sata14/my/data/</code>、<code>/nvme19/my/</code></p>
+  {% endif %}
+</div>
+
+<!-- ============ 文件写测试 ============ -->
+<h2 class="section">✏️ 文件写测试 <span class="desc">⚠️ 这些操作会真实写入 NAS,谨慎使用</span></h2>
+
+<div class="grid">
+  <!-- 建文件夹 -->
+  <div class="card full">
+    <h3>📁 建文件夹(<code>POST /v2/file/newdir</code>)</h3>
+    <div id="mkdir-result" class="small" style="margin-bottom:10px;color:#666;">
+      当前状态:{% if test_dir_exists %}<span class="pill ok">test 文件夹已存在</span>{% else %}<span class="pill">test 文件夹不存在</span>{% endif %}
+    </div>
+    <form id="mkdir-form" onsubmit="return submitMkdir(event);">
+      <div style="display:grid;grid-template-columns:1fr 200px auto;gap:8px;align-items:end;">
+        <div>
+          <label class="small">父目录(parent)</label>
+          <input type="text" name="parent" value="/sata14/my/data/备份" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <div>
+          <label class="small">文件夹名(name)</label>
+          <input type="text" name="name" value="test" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;">
+        </div>
+        <button type="submit" style="padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 执行写入</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 文件详情 -->
+  <div class="card full">
+    <h3>🔍 文件详情(<code>POST /v2/file/info</code>)<span class="pill ok" style="margin-left:8px;">只读</span></h3>
+    <div id="info-result" class="small" style="margin-bottom:10px;color:#666;">字段:<code>path</code></div>
+    <form id="info-form" onsubmit="return submitForm(event, 'info', '/action/info');" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+      <div><label class="small">路径 path</label>
+      <input type="text" name="path" value="/sata14/my/data/备份/test" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+      <button type="submit" style="padding:7px 16px;background:#3498db;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">查询</button>
+    </form>
+  </div>
+
+  <!-- 改名 -->
+  <div class="card full">
+    <h3>✏️ 改名(<code>POST /v2/file/modify</code>)</h3>
+    <div id="rename-result" class="small" style="margin-bottom:10px;color:#666;">字段:<code>path</code> + <code>newname</code>(注意不是 name/rename)</div>
+    <form id="rename-form" onsubmit="return submitForm(event, 'rename', '/action/rename');" style="display:grid;grid-template-columns:1fr 200px auto;gap:8px;align-items:end;">
+      <div><label class="small">原路径 path</label>
+      <input type="text" name="path" value="/sata14/my/data/备份/api_test_1782350719/tmp_subdir" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+      <div><label class="small">新名 newname</label>
+      <input type="text" name="newname" value="tmp_renamed" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+      <button type="submit" style="padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 改名</button>
+    </form>
+  </div>
+
+  <!-- 移动 -->
+  <div class="card full">
+    <h3>📦 移动(<code>POST /v2/file/move</code>)</h3>
+    <div id="move-result" class="small" style="margin-bottom:10px;color:#666;">字段:<code>paths[]</code>(逗号分隔多个) + <code>to</code>(目标目录,必须存在)</div>
+    <form id="move-form" onsubmit="return submitFormConfirm(event, 'move', '/action/move', '确认移动?');" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;">
+      <div><label class="small">源 paths(多个用逗号)</label>
+      <input type="text" name="paths" value="/sata14/my/data/备份/api_test_1782350719/tmp_b" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+      <div><label class="small">目标目录 to</label>
+      <input type="text" name="to" value="/sata14/my/data/备份/api_test_1782350719" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+      <button type="submit" style="padding:7px 16px;background:#e74c3c;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 移动</button>
+    </form>
+  </div>
+
+  <!-- 复制 -->
+  <div class="card full">
+    <h3>📋 复制(<code>POST /v2/file/copy</code>)</h3>
+    <div id="copy-result" class="small" style="margin-bottom:10px;color:#666;">字段:<code>paths[]</code> + <code>to</code></div>
+    <form id="copy-form" onsubmit="return submitForm(event, 'copy', '/action/copy');" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;">
+      <div><label class="small">源 paths</label>
+      <input type="text" name="paths" value="/sata14/my/data/备份/api_test_1782350719/tmp_b" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+      <div><label class="small">目标目录 to</label>
+      <input type="text" name="to" value="/sata14/my/data/备份/api_test_1782350719" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+      <button type="submit" style="padding:7px 16px;background:#e67e22;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️ 复制</button>
+    </form>
+  </div>
+
+  <!-- 删除 -->
+  <div class="card full">
+    <h3>🗑️ 删除(<code>POST /v2/file/remove</code>)<span class="pill fail" style="margin-left:8px;">危险</span></h3>
+    <div id="remove-result" class="small" style="margin-bottom:10px;color:#666;">字段:<code>paths[]</code>(端点名是 remove 不是 delete)。<strong>真实删除,不进回收站</strong></div>
+    <form id="remove-form" onsubmit="return submitFormConfirm(event, 'remove', '/action/remove', '⚠️ 确认删除?此操作不可逆,且不进回收站');" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+      <div><label class="small">要删的路径(多个用逗号)</label>
+      <input type="text" name="paths" value="/sata14/my/data/备份/api_test_1782350719/tmp_b" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,monospace;font-size:12px;"></div>
+      <button type="submit" style="padding:7px 16px;background:#c0392b;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">⚠️⚠️ 删除</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

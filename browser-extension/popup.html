@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body { min-width: 320px; max-width: 480px; font: 13px/1.5 system-ui, sans-serif; margin: 0; padding: 8px; background: #1e1e1e; color: #ddd; }
+    h1 { font-size: 14px; margin: 0 0 8px; color: #6cf; }
+    .item { display: flex; align-items: center; padding: 6px 8px; border-radius: 4px; cursor: pointer; text-decoration: none; color: #ddd; }
+    .item:hover { background: #2a2a2a; }
+    .item .port { font-family: monospace; color: #fa3; min-width: 56px; }
+    .item .label { flex: 1; }
+    .item .host { font-size: 11px; color: #888; font-family: monospace; }
+    .item.open::after { content: "↗"; color: #6cf; }
+    .footer { margin-top: 8px; padding-top: 8px; border-top: 1px solid #333; font-size: 11px; color: #888; }
+    .footer a { color: #6cf; text-decoration: none; }
+    .empty { padding: 16px; text-align: center; color: #888; }
+    .empty a { color: #6cf; }
+  </style>
+</head>
+<body>
+  <h1>🌐 ZSpace Remote Access</h1>
+  <div id="list"></div>
+  <div class="footer">
+    <a id="options" href="#">⚙️ 编辑白名单</a>
+    · <span id="count"></span>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
