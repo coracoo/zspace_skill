@@ -6,6 +6,7 @@ from .auth import (
     resolve_device_id,
 )
 from .proto import NAS_BASE, common_query, append_common_query
+from .client import NasClient
 
 __all__ = [
     "NAS_PUBKEY_PEM",
@@ -15,4 +16,5 @@ __all__ = [
     "NAS_BASE",
     "common_query",
     "append_common_query",
+    "NasClient",
 ]
