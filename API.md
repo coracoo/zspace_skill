@@ -728,12 +728,105 @@ song_disc, song_track, song_size, song_duration
 
 ### 6.12 网盘 `/znetdisk/*` + `/zonedrive/*`
 
-| 端点 | 用途 | 状态 |
-|------|------|------|
-| `/znetdisk/` `/znetdisk/list` | 百度网盘 | ⚠️ `N001013 百度网盘未登录!`(集成存在,需要在 NAS UI 登录百度网盘账号) |
-| `/znetdisk1/` | 127.0.0.1:8026 | 第二个网盘后端 |
-| `/netdisk/` `/netdisk/ws` | 127.0.0.1:5300 | 网盘 WebSocket |
-| `/zonedrive/` | zonedrive.socket(unix socket,实测活跃) | 网盘统一接口,但 `/list` `/info` 等子路径 404,需要抓包确定路径 |
+**重大**:32 个 `/znetdisk/*` 端点全部摸到(2026-07-12,从 pcweb JS bundle `home/static/js/async/10064.*.js` 提取)。后端是 PHP(`/zspace/applications/services/znetdisk/index.php`)+ Go RPC(`netdiskv2_server` 监听 :8026,二进制路径 `/var/appstore/pkg/cloudBackUp/znetdiskv2/`)。
+
+**支持的网盘**:百度网盘(主集成,client_id=`GTXdyMi3Q0enYhpCfiaHscBRnY9ST0t6`)+ OneDrive(已配过,`/zspace/zsrp/sqlite/<user>/onedrive.db`)。
+
+**OAuth 登录流程(百度,redirect_uri=oob 模式)**:
+1. 调 `/znetdisk/auth/check` 拿 OAuth URL(返回 `https://openapi.baidu.com/oauth/2.0/authorize?client_id=...&scope=basic,netdisk`)
+2. 用户在浏览器打开 URL,百度登录并授权 → 显示授权码(code)
+3. 调 `/znetdisk/auth/token {app:"baidu", code:"..."}` 完成 token 交换
+4. `is_login=true` 后所有端点可用
+
+未登录时所有端点返回 `code="N001013"` + 空 data。
+
+#### 6.12.1 已破端点清单(全部 POST,application/json)
+
+**Auth(4)**
+| 端点 | 用途 | 实测返回 |
+|------|------|---------|
+| `/znetdisk/auth/check` | 检查登录态 + 拿 OAuth URL | `{code:"200", data:{is_login:bool, url:string}}` ✅ |
+| `/znetdisk/auth/token` | OAuth code → token 完成登录 | body `{app:"baidu"\|"onedrive", code:"..."}` |
+| `/znetdisk/auth/userinfo` | 已登录网盘账号信息 | N001013 未登录 |
+| `/znetdisk/auth/logout` | 退出网盘 | |
+
+**File 操作(4)— 云盘文件管理**
+| 端点 | 用途 | 关键 body |
+|------|------|----------|
+| `/znetdisk/file/list` | 列云盘文件 | `{dir, page, num}`(待抓) |
+| `/znetdisk/file/download` | 添加下载任务(云盘 → NAS) | `{file_path[], save_path}`(待抓) |
+| `/znetdisk/file/upload` | 上传(NAS → 云盘) | `{file_path[], save_path}` |
+| `/znetdisk/file/newdir` | 云盘新建目录 | `{dir}` |
+
+**Task(2)— 任务管理**
+| 端点 | 用途 |
+|------|------|
+| `/znetdisk/task/list` | 列下载/上传任务 |
+| `/znetdisk/task/action` | 任务操作(start/stop/delete) |
+
+**Sync(6)— NAS ↔ 云盘双向同步**
+| 端点 | 用途 |
+|------|------|
+| `/znetdisk/sync/list` | 列同步任务 |
+| `/znetdisk/sync/add` | 创建同步任务(local_dir + remote_dir) |
+| `/znetdisk/sync/home` | 同步主页(统计/汇总) |
+| `/znetdisk/sync/open` | 启用同步任务 |
+| `/znetdisk/sync/close` | 暂停同步任务 |
+| `/znetdisk/sync/delete` | 删除同步任务 |
+
+**AutoBackup(7)— 自动备份(手机/电脑 → NAS → 云盘)**
+| 端点 | 用途 |
+|------|------|
+| `/znetdisk/autobackup/add` | 添加自动备份任务 |
+| `/znetdisk/autobackup/info` | 任务详情 |
+| `/znetdisk/autobackup/start` | 启动 |
+| `/znetdisk/autobackup/stop` | 暂停 |
+| `/znetdisk/autobackup/delete` | 删除 |
+| `/znetdisk/autobackup/faillist` | 失败文件列表 |
+| `/znetdisk/autobackup/clear_fail_files` | 清失败记录 |
+
+**Share(4)— 分享链接转存(用户场景:别人发的百度网盘链接 → 我的 NAS)**
+| 端点 | 用途 |
+|------|------|
+| `/znetdisk/share/verify` | 验证分享链接(提取码) |
+| `/znetdisk/share/filelist` | 分享里的文件列表 |
+| `/znetdisk/share/transfer` | 转存到我的网盘 |
+| `/znetdisk/share/transfer_result` | 转存结果 |
+
+**Fail / Membership / Order(7)**
+| 端点 | 用途 |
+|------|------|
+| `/znetdisk/fail/list` | 全局失败列表 |
+| `/znetdisk/membership/active` | 会员激活 |
+| `/znetdisk/order/check_free_vip` | 检查免费 VIP |
+| `/znetdisk/order/direct_charge` | 直接充值 |
+| `/znetdisk/order/get_cashier` | 收银台 |
+
+#### 6.12.2 其他网盘后端(活跃,路径未破)
+
+| 端点前缀 | 后端 | 状态 |
+|---------|------|------|
+| `/znetdisk1/` | 127.0.0.1:8026(Go `netdiskv2_server`)| 跟 `/znetdisk/` 共享 PHP 入口? |
+| `/netdisk/` `/netdisk/ws` | 127.0.0.1:5300 | WebSocket,可能用于实时进度 |
+| `/zonedrive/` | `zonedrive.socket` | 网盘**统一抽象层**,子路径全 404,需更多抓包 |
+
+#### 6.12.3 配置文件(已摸到)
+
+- **`/var/appstore/pkg/cloudBackUp/znetdiskv2/conf/config.yml`** — Go 后端配置(server.port=8000,DB MySQL `nas` 库,Redis cluster)
+- **`/var/appstore/pkg/cloudBackUp/znetdiskv2/conf/error.yml`** — 错误码:
+  - `11`:百度网盘账号已被其他极空间账号绑定
+  - `13/15`:需要 NAS 会员权限
+  - `19/20`:文件数限制(5/100)
+- **`/var/appstore/pkg/cloudBackUp/znetdiskv2/conf/conf.go`** — 文件系统挂载点常量:
+  - `/tmp/zfuse`、`/tmp/zfsv2`、`/tmp/zfsv3`(版本演进)
+  - `/tmp/zfsv2/share`、`/tmp/zfsv2/share_for`(共享)
+  - `/zspace/extdev`(USB 外置)
+
+#### 6.12.4 关键 gap
+
+- **OAuth 流程未跑通** — 需要用户在 NAS pcweb UI(或 MCP 触发 + 浏览器)实际登录百度网盘账号,拿到 code 后才能调其他端点
+- **写端点 body 未抓全** — `share/verify`、`sync/add`、`autobackup/add`、`task/action` 的字段名待从 JS 深挖或登录后实测
+- **`/zonedrive/*` 路径未破** — 这是统一抽象层,可能覆盖 OneDrive/夸克/阿里云盘等
 
 ### 6.13 其他活跃后端(从 unix socket 列表确认)
 
