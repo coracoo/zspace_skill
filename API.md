@@ -742,7 +742,9 @@ song_disc, song_track, song_size, song_duration
 
 #### 6.12.1 已破端点清单(全部 POST,application/json)
 
-**Auth(4)**
+⚠️ **MCP tool 已封装**(2026-07-13,commit `168fcd7`),tool 名 = `znetdisk_<group>_<action>`,如 `znetdisk_auth_check` / `znetdisk_share_transfer`。详见 `mcp_server/tools/znetdisk.py`。
+
+**Auth(4)** ✅ 字段已实测
 | 端点 | 用途 | 实测返回 |
 |------|------|---------|
 | `/znetdisk/auth/check` | 检查登录态 + 拿 OAuth URL | `{code:"200", data:{is_login:bool, url:string}}` ✅ |
