@@ -48,6 +48,7 @@ from mcp_server.tools import (  # noqa: E402,F401
     shares,
     notebook,
     proxy,
+    znetdisk,
 )
 from mcp_server.rag_hook import _rag_hook  # noqa: E402,F401
 
