@@ -8,7 +8,7 @@
 
 | 你是 | 你需要 | 不需要 |
 |---|---|---|
-| **MCP 用户**(想让 Claude Code 操作 NAS) | `zspace/mcp_server/` + `zspace/nas/` + `.env`(**API 内置在 MCP 里**) | Skill / Dashboard / RAG |
+| **MCP 用户**(想让 Claude Code 操作 NAS) | `zspace/mcp_server/` + `nas/` + `.env`(**API 内置在 MCP 里**) | Skill / Dashboard / RAG |
 | **Skill 用户**(想用自动化工作流) | 复制 `skills/<name>/` 到自己项目 | MCP 源码 / Dashboard / RAG |
 | **RAG 用户**(想要语义搜索) | `rag-server/` docker compose | Skill / Dashboard |
 | **开发者**(想加新 tool/skill) | clone 整个仓库 | — |
@@ -18,13 +18,13 @@
 ```bash
 # 1. 安装 Python 包
 git clone <repo> && cd zspace-mcp-poc
-pip install -e .                    # 或用 ./zspace/start.sh deps
+pip install -e .                    # 或用 ./start.sh deps
 
 # 2. 配置连接
 cp zspace/.env.example .env && vi .env     # 填 NAS_HOST/USER/PASSWORD
 
 # 3. 接入 Claude Code
-./zspace/start.sh mcp-cfg                  # 打印配置 → 粘到 mcp.json
+./start.sh mcp-cfg                  # 打印配置 → 粘到 mcp.json
 # 重启 Claude Code,89 tool 自动出现
 ```
 
@@ -57,7 +57,7 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 | MCP(必须) | `pip install -e .` | 89 tool,Claude Code 连 NAS |
 | Skill | 复制到 `skills/` | 6 个工作流,Agent 自动触发 |
 | RAG docker | `docker compose up -d` | 语义搜索,部署在 NAS 上 |
-| Dashboard | `./zspace/start.sh dashboard` | Web UI,iPhone 备忘录入口 |
+| Dashboard | `./start.sh dashboard` | Web UI,iPhone 备忘录入口 |
 | 百度网盘 | `zspace/scripts/netdisk_login.py` | OAuth 登录后再用 28 个 znetdisk tool |
 
 ```
@@ -73,8 +73,8 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 │ tools/{files,storage,zvideo,notebook,    │  ← 每个 tool = 1 个 NAS API 端点封装
 │        znetdisk,proxy,rag,...}           │
 └──────────────────┬───────────────────────┘
-                   ↓ HTTP(zspace/nas/)
-┌─ 协议层(zspace/nas/) ───────────────────────────┐
+                   ↓ HTTP(nas/)
+┌─ 协议层(nas/,顶层共享包) ──────────────────────┐
 │ auth.py  RSA 登录 + device_id 选择        │  ← Python 库,Skill 和 MCP 都复用
 │ client.py NasClient(token 自动续)       │
 └──────────────────┬───────────────────────┘
@@ -85,17 +85,17 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 └──────────────────────────────────────────┘
 ```
 
-**三者关系**: Skill 是"做什么"(工作流) → MCP 是"怎么做"(单步操作) → zspace/nas/ 是"怎么连"(协议)。新用户只需配 MCP,skill 自动生效。
+**三者关系**: Skill 是"做什么"(工作流) → MCP 是"怎么做"(单步操作) → `nas/` 是"怎么连"(协议)。新用户只需配 MCP,skill 自动生效。
 
 ## 必须 & 可选
 
 | 组件 | 必须? | 说明 |
 |---|---|---|
 | `.env` 配置 | ✅ 必须 | NAS 连接信息(NAS_HOST/USER/PASSWORD) |
-| `mcp_server.py` | ✅ 必须 | MCP stdio 服务,Claude Code 连它 |
+| `zspace.mcp_server`(`-m` 入口) | ✅ 必须 | MCP stdio 服务,Claude Code 连它 |
 | `nas-setup` skill | ✅ 推荐 | 首次跑,验证 env + 登录 + 可选组件 |
 | `rag-server/` docker | 可选 | RAG 语义搜索。不装也能用 86 个 tool,只是 semantic_search 不可用 |
-| `dashboard/app.py` Dashboard | 可选 | Web 管理界面(iPhone 备忘录入口等) |
+| `dashboard/` Dashboard | 可选 | Web 管理界面(iPhone 备忘录入口等) |
 | 百度网盘 OAuth | 可选 | 28 个 znetdisk tool 需要先登录 |
 
 ## 安装
@@ -109,10 +109,10 @@ cp zspace/.env.example .env
 vi .env   # 填 NAS_HOST / NAS_USER / NAS_PASSWORD
 
 # 2. 装 Python 依赖(必须)
-./zspace/start.sh deps
+./start.sh deps
 
 # 3. 接入 Claude Code(必须)
-./zspace/start.sh mcp-cfg   # 打印配置片段,粘到 ~/.config/claude-code/mcp.json
+./start.sh mcp-cfg   # 打印配置片段,粘到 ~/.config/claude-code/mcp.json
 # 重启 Claude Code → 89 个 tool 自动出现
 
 # 4. 首次验证
@@ -123,7 +123,7 @@ python skills/nas-setup/scripts/check.py
 cd rag-server && docker compose up -d    # 需要 NAS docker daemon
 
 # 6. (可选) Web Dashboard
-./zspace/start.sh dashboard   # http://localhost:15050
+./start.sh dashboard   # http://localhost:15050
 ```
 
 ## 使用示例
@@ -146,12 +146,13 @@ Agent 内部执行流程:
 
 ```
 zspace-mcp-poc/
-├── zspace/nas/                  NAS 协议层
+├── nas/                        NAS 协议层(顶层共享包,skill/dashboard/mcp 都直接依赖)
 │   ├── auth.py           RSA 公钥 + device_id 自动选择
 │   ├── proto.py          URL 公共参数
 │   └── client.py         NasClient(token 自动续)
 │
-├── zspace/mcp_server/           MCP Server
+├── zspace/mcp_server/           MCP Server(入口 python -m zspace.mcp_server)
+│   ├── __main__.py       -m 入口
 │   ├── main.py           FastMCP 入口
 │   └── tools/            按域分文件
 │       ├── files.py      文件读写 + 标签
@@ -164,7 +165,8 @@ zspace-mcp-poc/
 │       ├── media.py      音乐/相册
 │       └── rag.py        RAG 语义搜索
 │
-├── dashboard/app/                  Web Dashboard
+├── dashboard/app/                  Web Dashboard(入口 python -m dashboard.app)
+│   ├── __main__.py       -m 入口
 │   ├── main.py           FastAPI + Session
 │   └── routes/
 │       ├── shortcut.py   iPhone 备忘录 → NAS 入口
@@ -172,21 +174,22 @@ zspace-mcp-poc/
 │       └── files.py,notebook.py,zvideo.py 文件/记事本/影视 CRUD
 │
 ├── rag-server/       RAG docker 服务(在 NAS 独立部署，作为文件索引)
-│   ├── dashboard/app/server.py     /search /reindex /index /unindex /status
+│   ├── app/server.py       /search /reindex /index /unindex /status
 │   ├── Dockerfile + docker-compose.yml
-│   └── rag-server/docs/03-API.md    REST 协议
+│   └── README.md           REST 协议(端点表)
 │
-├── skills/       5 个自动化 skill
-│   ├── ios-memo-bak/     iPhone 备忘录 → 极空间记事本
-│   ├── media-organizer/  极影视分类审计
-│   ├── smart-tagger/     RAG 搜索基础上的批量文件标签管理
-│   ├── label-manager/    标签管理
-│   └── file-organizer/   文件库诊断
+├── skills/       6 个自动化 skill
+│   ├── nas-setup/       前置:验证 env/登录/可选组件
+│   ├── ios-memo-bak/    iPhone 备忘录 → 极空间记事本
+│   ├── media-organizer/ 极影视分类审计
+│   ├── smart-tagger/    RAG 搜索基础上的批量文件标签管理
+│   ├── label-manager/   标签管理
+│   └── file-organizer/  文件库诊断
 │
-├── mcp_server.py / dashboard/app.py  shim(入口兼容)
+├── pyproject.toml             包定义(pip install -e .)
 ├── docs/API.md                 NAS 全端点速查
 ├── docs/MCP.md                 89 tool 详细文档
-└── zspace/start.sh               一键启动(deps/mcp/dashboard/mcp-cfg)
+└── start.sh                    一键启动(deps/mcp/dashboard/mcp-cfg)
 ```
 
 ## MCP Tool 清单(89)
@@ -270,10 +273,11 @@ zspace-mcp-poc/
 | `reindex` | 重建索引 |
 | `index_status` | 索引概况 |
 
-## Skill 清单(5)
+## Skill 清单(6)
 
 | Skill | 触发词 | 用途 |
 |---|---|---|
+| `nas-setup` | 首次配置、验证连接 | 前置:验证 env/登录/可选组件(RAG) |
 | `ios-memo-bak` | iPhone 备忘录同步 | 一键配置 iPhone Shortcut → NAS 记事本 |
 | `media-organizer` | 极影视整理、frds 拆分 | 只读审计分类/源目录/影片抽样 |
 | `smart-tagger` | 给 XX 内容打标签 | RAG 搜 → 批量 save_file_label |
@@ -289,7 +293,8 @@ zspace-mcp-poc/
   "mcpServers": {
     "zspace-nas": {
       "command": "/path/to/.venv/bin/python",
-      "args": ["/path/to/mcp_server.py"],
+      "args": ["-m", "zspace.mcp_server"],
+      "cwd": "/path/to/zspace-mcp-poc",
       "env": {
         "NAS_HOST": "192.168.x.x",
         "NAS_USER": "<phone>",
@@ -329,7 +334,7 @@ curl -X POST http://nas:8000/reindex -H 'Content-Type: application/json' \
   -d '{"scope":"files","full":true}'
 ```
 
-REST API 详见 `rag-server/rag-server/docs/03-API.md`。
+REST API 详见 `rag-server/README.md`(端点表)。
 
 ## 文档
 
@@ -337,7 +342,7 @@ REST API 详见 `rag-server/rag-server/docs/03-API.md`。
 |---|---|
 | `docs/API.md` | NAS 全端点速查(12 域,~900 行) |
 | `docs/MCP.md` | 89 tool 参数/返回/端点映射 |
-| `rag-server/rag-server/docs/03-API.md` | RAG REST 协议 |
+| `rag-server/README.md` | RAG REST 协议(端点表) |
 | `docs/iphone-shortcut.md` | iPhone Shortcut 配置图解 |
 
 ## License

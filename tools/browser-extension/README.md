@@ -28,7 +28,7 @@
 
 | 工具 | 作用 |
 |------|------|
-| `mcp_server.py` 的 `proxy_url_for_port(port)` | 程序化生成 URL(MCP/Claude Code 用) |
+| `zspace/mcp_server/tools/proxy.py` 的 `proxy_url_for_port(port)` | 程序化生成 URL(MCP/Claude Code 用) |
 | 这个扩展 | 浏览器侧一键跳转(人用) |
 | `ZENITH_COOKIE` env | mcp_server 跟 zos 云代理通讯用的 session cookie |
 

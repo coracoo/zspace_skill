@@ -10,23 +10,23 @@ cp .env.example .env && vi .env  # 填 NAS 连接信息
 
 ## 项目结构
 
-参见 [README.md](./README.md) 的「代码路由 & 路径分类」节。
+参见 [README.md](./README.md) 的「文件路由」节。
 
 ## 开发流程
 
 ### 加新的 MCP Tool
 
-1. 找到对应域的文件:`mcp_server/tools/<domain>.py`
+1. 找到对应域的文件:`zspace/mcp_server/tools/<domain>.py`
 2. 加 `@mcp.tool()` 装饰的 async 函数
 3. 调 `_main.nas.post("/nas/endpoint", {...})`
 4. 用 `_to_json()` 序列化返回
 5. 提交前验证:`./start.sh mcp` 启动看 `X tools registered` 数字 +1
 
 ```python
-# mcp_server/tools/example.py
-from mcp_server import main as _main
-from mcp_server.main import mcp
-from mcp_server.perf import _to_json
+# zspace/mcp_server/tools/example.py
+from zspace.mcp_server import main as _main
+from zspace.mcp_server.main import mcp
+from zspace.mcp_server.perf import _to_json
 
 @mcp.tool()
 async def my_new_tool(param: str) -> str:
@@ -61,7 +61,7 @@ async def my_new_tool(param: str) -> str:
 
 ```bash
 ./start.sh mcp-cfg  # 验证 MCP server 能启动
-python -c "from mcp_server import mcp; print(len(mcp._tool_manager._tools))"  # 应为 89
+python -c "from zspace.mcp_server import mcp; print(len(mcp._tool_manager._tools))"  # 应为 89
 curl http://localhost:15050/healthz  # 验证 dashboard
 ```
 

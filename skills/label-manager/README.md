@@ -12,36 +12,34 @@ skills/label-manager/
 ├── SKILL.md            # LLM 读的工作流(触发词 + 5 场景 + 调用示例)
 ├── label_manager.py    # Python CLI:list-labels / scan / find-by-label
 ├── lib/
-│   └── nas_client.py   # 桥接层:从 mcp_server.py import NasClient
+│   └── nas_client.py   # 桥接层:从顶层 nas 包 import NasClient
 ├── tests/
 │   └── smoke.sh        # 自动化烟雾测试
 └── README.md           # 这个文件
 ```
 
-## 复用 mcp_server.py 的方式
+## 复用 nas 包的方式
 
-**直接 import mcp_server.py**(冷启动 0.77s):
+**直接 import 顶层 `nas` 包**(轻量,只加载协议层,不触发 FastMCP + tool 注册):
 
 ```python
 # lib/nas_client.py
-PROJECT_ROOT = Path(__file__).resolve().parents[4]  # 项目根
+PROJECT_ROOT = Path(__file__).resolve().parents[3]  # lib → label-manager → skills → repo
 sys.path.insert(0, str(PROJECT_ROOT))
-_load_env()  # 必须在 import mcp_server 前加载 .env
-from mcp_server import NasClient, _to_json
+_load_env()  # 必须在 import nas 前加载 .env
+from nas import NasClient
 ```
 
 为什么直接 import:
 - 简单,零代码改动
-- 0.77s 冷启动可接受(用户场景是手动触发)
-- 不重复实现 RSA 登录 + cookie 管理
-
-如果以后觉得太慢,把 `NasClient` 抽到独立 `nas_client.py`,让 `mcp_server.py` 也 import 它。
+- 只依赖顶层 `nas`(RSA 登录 + cookie 管理),不重复实现
+- 不再经 `zspace.mcp_server` 转发,依赖关系直接
 
 ## env 加载
 
-`lib/nas_client.py` 里 `_load_env()` 在 `import mcp_server` **之前**调用。
-原因:`mcp_server.py:88` 在 `NasClient.__init__` 里会读 `NAS_USER` / `NAS_PASSWORD` env,
-如果 env 没设就 `RuntimeError`。
+`lib/nas_client.py` 里 `_load_env()` 在 `import nas` **之前**调用。
+原因:`nas` 包在 import 时(`nas/client.py`)就读 `NAS_USER` / `NAS_PASSWORD` env,
+env 没设会导致后续 `NasClient()` 登录失败。
 
 ## 性能数据(N150 实测)
 
@@ -86,7 +84,7 @@ print(yaml.safe_load(m.group(1)).keys())
 ## 设计原则
 
 1. **MCP 是原子,Skill 是编排** — 不重复造轮子
-2. **复用 mcp_server.py 的 NasClient** — 不重复实现登录
+2. **复用顶层 `nas` 包的 NasClient** — 不重复实现登录
 3. **N150 限速** — 串行 + sleep 0.1s + max-depth 默认 5
 4. **删除走 MCP tool,不走脚本** — 太危险,必须有 LLM 二次确认
 5. **判断交回 LLM** — 脚本只做机械活(扫文件、过滤),决策(打哪些)LLM 做

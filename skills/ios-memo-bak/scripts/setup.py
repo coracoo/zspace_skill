@@ -28,9 +28,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]  # lib/ -> skill/ -> skills/ -> repo
+PROJECT_ROOT = Path(__file__).resolve().parents[3]  # scripts/ -> ios-memo-bak/ -> skills/ -> repo
 ENV_FILE = PROJECT_ROOT / ".env"
-APP_MAIN = PROJECT_ROOT / "app" / "main.py"
+APP_MAIN = PROJECT_ROOT / "dashboard" / "app" / "main.py"
 START_SH = PROJECT_ROOT / "start.sh"
 
 
@@ -90,7 +90,7 @@ def find_nas_lan_ip() -> str:
 
 def restart_dashboard() -> bool:
     """用 ./start.sh dashboard 重启(自动 source .env)"""
-    pid_file = PROJECT_ROOT / "logs" / "dashboard.pid"
+    pid_file = PROJECT_ROOT / "dashboard" / "logs" / "dashboard.pid"
     if pid_file.exists():
         try:
             pid = int(pid_file.read_text().strip())

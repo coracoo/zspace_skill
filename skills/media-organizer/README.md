@@ -12,13 +12,13 @@ skills/media-organizer/
 ├── SKILL.md             # LLM 读的工作流(触发词 + 4 命令 + 场景示例)
 ├── media_organizer.py   # Python CLI:audit-classifications / sources / collections / all
 ├── lib/
-│   └── nas_client.py    # 桥接层:从 mcp_server.py import NasClient
+│   └── nas_client.py    # 桥接层:从顶层 nas 包 import NasClient
 ├── tests/
 │   └── smoke.sh         # 自动化烟雾测试
 └── README.md            # 这个文件
 ```
 
-跟 `label-manager` skill 一样复用 `mcp_server.py` 的 `NasClient`(冷启动 0.77s,共享登录)。
+跟 `label-manager` skill 一样复用顶层 `nas` 包的 `NasClient`(共享 RSA 登录 + cookie)。
 
 ## 5 个命令
 

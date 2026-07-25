@@ -10,7 +10,7 @@ python file_organizer.py audit-orphans --output /tmp/orphans.json
 python file_organizer.py audit-all --output /tmp/full-report.json
 ```
 
-复用 media-organizer 的 lib/nas_client.py 桥接模式,通过 `from mcp_server import NasClient` 复用登录逻辑。
+复用 media-organizer 的 lib/nas_client.py 桥接模式,通过 `from nas import NasClient` 复用登录逻辑。
 
 ## 关键特性
 

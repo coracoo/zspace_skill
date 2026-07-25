@@ -2,7 +2,7 @@
 
 把 NAS 反向工程的 HTTP API 包成 MCP tool,让 Claude Code / Cursor / Claude Desktop 等 AI 客户端能直接调用。
 
-源文件:`mcp_server/` 包(按域拆分) · 薄入口:`mcp/mcp_server.py`(shim,兼容外部 mcp.json) · 测试桩:`README.md` 有完整握手示例。
+源文件:`zspace/mcp_server/` 包(按域拆分) · 入口:`python -m zspace.mcp_server`(`zspace/mcp_server/__main__.py`) · 协议层:顶层 `nas/` 包。
 
 ---
 
@@ -17,7 +17,8 @@
   "mcpServers": {
     "zspace-nas": {
       "command": "/home/cc/workspace/zspace-mcp-poc/.venv/bin/python",
-      "args": ["/home/cc/workspace/zspace-mcp-poc/mcp/mcp_server.py"],
+      "args": ["-m", "zspace.mcp_server"],
+      "cwd": "/home/cc/workspace/zspace-mcp-poc",
       "env": {
         "NAS_HOST": "<nas_ip>",
         "NAS_USER": "<your_phone_number>",
@@ -46,8 +47,8 @@
 ### 1.3 验证启动
 
 ```bash
-NAS_USER=<your_phone_number> NAS_PASSWORD=... KEY_SSH=... .venv/bin/python mcp/mcp_server.py
-# 看到日志 "MCP server 'zspace-nas' starting, 58 tools registered" 即成功
+NAS_USER=<your_phone_number> NAS_PASSWORD=... KEY_SSH=... .venv/bin/python -m zspace.mcp_server
+# 看到日志 "MCP server 'zspace-nas' starting, 89 tools registered" 即成功
 ```
 
 ---
