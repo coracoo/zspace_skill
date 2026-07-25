@@ -424,7 +424,7 @@ location=1 是保险箱备忘录,需要先开保险箱 — 这套 tool 全部用
 
 **架构**:zos 给每个 NAS 内网端口分配公网子域名 `https://remote-access-{port}.zconnect.cn/`,自动代理到 NAS `127.0.0.1:{port}`(前提是白名单里有这端口)。
 
-**认证**:`/auth/login` 返回的 `token` 跟 zenith session cookie 是 **同一个 JWT**(前缀 `108MSQl...`),可以直接用。但云代理还要求 `sign` / `cloudPubKey` / `nasPubKey` 等额外 cookie(从 `www.zconnect.cn` SSO 来,`/auth/login` 不发),所以需要从浏览器 DevTools 复制完整 cookie 串塞进 `ZENITH_COOKIE` env。
+**认证**:`/auth/login` 返回的 `token` 跟 zenith session cookie 是 **同一个 JWT**(前缀 `<jwt_token_prefix>`),可以直接用。但云代理还要求 `sign` / `cloudPubKey` / `nasPubKey` 等额外 cookie(从 `www.zconnect.cn` SSO 来,`/auth/login` 不发),所以需要从浏览器 DevTools 复制完整 cookie 串塞进 `ZENITH_COOKIE` env。
 
 #### `proxy_login()`
 
