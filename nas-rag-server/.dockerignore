@@ -1,0 +1,25 @@
+# 排除无关文件,减小 image build context
+docs/
+tests/
+scripts/
+.git/
+.gitignore
+.gitattributes
+README.md
+*.md
+docker-compose.yml
+Dockerfile
+.dockerignore
+data/
+fastembed-cache/
+*.log
+*.tmp
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/

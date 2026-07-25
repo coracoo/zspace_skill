@@ -1,0 +1,13 @@
+# 本机开发产物,不进 git
+data/
+fastembed-cache/
+*.log
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env

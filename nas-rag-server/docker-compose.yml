@@ -1,0 +1,39 @@
+services:
+  nas-rag:
+    build: .
+    image: nas-rag-server:latest
+    container_name: nas-rag
+    restart: unless-stopped
+    ports:
+      # 只 loopback 监听(用 openresty/nginx 反代,不直接暴露)
+      # 默认 :8000;本机若被占用(如主项目 dashboard),设 RAG_HOST_PORT=8100
+      - "127.0.0.1:${RAG_HOST_PORT:-8000}:8000"
+    volumes:
+      # sqlite 数据持久化(宿主 <--> 容器)
+      - ${RAG_DB_HOST_PATH:-./data}:/app/data
+      # bge 模型 cache(从本机 ~/.cache/fastembed 同步过来,免重复下载 100MB)
+      - ${FASTEMBED_CACHE_HOST_PATH:-./fastembed-cache}:/root/.cache/fastembed
+    environment:
+      # sqlite 文件路径(容器内)
+      - RAG_DB_PATH=/app/data/rag.db
+      # 模型 cache 目录(容器内)
+      - FASTEMBED_CACHE_DIR=/root/.cache/fastembed
+      # 扫描根(默认 /sata14/my/data/,部署到 NAS 时按需改)
+      - RAG_SCAN_ROOTS=/sata14/my/data/
+      # 文件白名单扩展(逗号分隔)
+      - RAG_WHITELIST_EXTS=.py,.md,.txt,.json,.yaml,.yml,.conf,.csv,.log,.mdx,.rst,.tex,.html,.htm,.xml,.ini,.toml,.cfg
+      # 单文件大小上限(KB)
+      - RAG_MAX_FILE_SIZE_KB=100
+      # chunk 大小(字符)
+      - RAG_CHUNK_SIZE=500
+      - RAG_CHUNK_OVERLAP=50
+      # N150 限速(ms/请求)
+      - RAG_SLEEP_BETWEEN_PAGES=100
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 1.5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
