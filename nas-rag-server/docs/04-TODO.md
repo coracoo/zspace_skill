@@ -49,7 +49,19 @@
   - [ ] 删除本地 embedder/store/scanner 相关代码
 - [ ] `.env.example` 加 `NAS_RAG_URL=http://192.168.0.135:8100`
 - [ ] 测试 3 个 RAG tool 通过 MCP 调用 → NAS daemon → 命中
-- [ ] 跟 label-manager 联动(semantic_search 找 → save_file_label 打标签)
+- [ ] 跟 label-manager 联动 — 见 Phase 5.1
+
+## Phase 5.1: 新建 smart-tagger skill(案例三)
+
+对应 obsidian 文档「极空间.md」的 case 3(RAG 搜 + 批量打标)。
+
+- [ ] `.claude/skills/smart-tagger/SKILL.md`
+  - frontmatter:`name: smart-tagger`,触发词:给 XX 内容打标 / 找所有 XX 打标 / 给一年级的文件打标
+  - 工作流:用户自然语言 → `semantic_search(query, scope="files")` 拿匹配文件列表 → `save_file_label(label, paths)` 批量打标(MCP 客户端弹 UI 批准)
+  - 关键约束:写操作不走脚本,统一走 MCP tool;RAG 不命中时降级到 `list_files` + 文件名匹配
+- [ ] `.claude/skills/smart-tagger/README.md` - 简短说明
+- [ ] `.claude/skills/label-manager/SKILL.md` 更新 — 定位改成"smart-tagger 的标签查询底层",加跟 smart-tagger 协作说明
+- [ ] `README.md` 主项目 skill 表更新 — 加 3 case 对应关系(ios-memo-bak / media-organizer / smart-tagger)
 
 ## Phase 6: 优化(可选,看需求)
 

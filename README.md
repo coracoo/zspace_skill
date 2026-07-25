@@ -61,9 +61,11 @@ zspace-mcp-poc/
 ├── API.md                        # NAS 全端点速查(端点表不变)
 ├── MCP.md                        # MCP 58 个 tool 详细文档
 └── .claude/skills/               # skill 工作流
-    ├── label-manager/            # 标签管理 skill
-    ├── media-organizer/          # 极影视诊断 skill
-    └── file-organizer/           # 文件诊断 skill(只读)
+    ├── label-manager/            # 标签管理 skill(案例三底层)
+    ├── media-organizer/          # 极影视诊断 skill(案例二)
+    ├── file-organizer/           # 文件诊断 skill(只读)
+    ├── ios-memo-bak/             # iPhone 备忘录同步 skill(案例一)
+    └── smart-tagger/             # RAG 搜 + 批量打标 skill(案例三)
 ```
 
 ### 当前完成情况
@@ -324,12 +326,15 @@ asyncio.run(m())
 
 Claude Code 的 skill 是 MCP 之上的"组合动作"层,做 LLM 不擅长或容易漏的机械活。
 
-### 现有 skill
+### 现有 skill(5 个,对应 3 个真实使用 case)
 
-| Skill | 触发词 | 用途 | 命令 |
-|-------|--------|------|------|
-| `label-manager` | 打标签、按标签找、新建标签、删除标签 | NAS 标签管理(打标/批量打标/反向查找) | `list-labels` / `scan` / `find-by-label` |
-| `media-organizer` | 极影视整理、分类诊断、frds 拆分 | **只读**诊断极影视的分类不规范 | `audit-classifications` / `audit-sources` / `audit-collections` / `audit-all` |
+| Skill | 触发词 | 用途 | 对应 case |
+|-------|--------|------|---------|
+| `ios-memo-bak` | iPhone 备忘录同步、ios 备忘录 bak | iPhone 备忘录 → NAS 记事本(OAuth 一键配置) | **case 1** |
+| `media-organizer` | 极影视整理、分类诊断、frds 拆分 | **只读**诊断极影视的分类不规范 | **case 2** |
+| `smart-tagger` | 给 XX 内容的文件打标、智能打标 | RAG 语义搜 → 批量打标 | **case 3** |
+| `label-manager` | 打标签、按标签找、新建/删除标签 | 标签 CRUD + 按元数据找(案例三的查询底层) | 辅助 |
+| `file-organizer` | 重复文件、孤儿文件、文件整理诊断 | **只读**诊断文件库 | 独立 |
 
 ### 工作模式
 
@@ -339,6 +344,14 @@ Claude Code 的 skill 是 MCP 之上的"组合动作"层,做 LLM 不擅长或容
 
 详细见各 skill 目录的 `README.md`。
 
+### 3 case 对应关系(详见 `docs/articles/2026-07-13-zspace-nas-mcp.md`)
+
+```
+case 1 (iOS 备忘录 → NAS 记事本)        → ios-memo-bak skill
+case 2 (极影视审查整理)                  → media-organizer skill
+case 3 (RAG 搜 + 批量打标)               → smart-tagger + label-manager
+```
+
 ## 七、相关文档
 
 - **`API.md`**(907 行)— NAS 全端点速查 + 字段对照 + 易踩坑(目前覆盖到 §6.3.2)
@@ -346,6 +359,10 @@ Claude Code 的 skill 是 MCP 之上的"组合动作"层,做 LLM 不擅长或容
 - **`docs/iphone-shortcut.md`** — iPhone 备忘录 → NAS 记事本 同步(4 动作 Shortcut 推 Cocoa HTML,iOS 端 0 密钥;服务端自动剥样式转 `<h1>/<h2>/<h3>/<p>/<table border=1>`,emoji 走 UTF-8 直传;备用 PWA 页面在 `/n`)
 - **`templates/tab_*.html`** — Dashboard 5 个 tab 模板(总览/存储池/极影视/记事本/写测试)
 - **`browser-extension/`** — Chrome 扩展,把白名单变成一键跳转(popup + omnibox `zra`)
-- **`.claude/skills/label-manager/`** — 标签管理 skill
-- **`.claude/skills/media-organizer/`** — 极影视诊断 skill
-- **`/home/corain/.claude/plans/fizzy-enchanting-rossum.md`** — label-manager + media-organizer skill 实现计划
+- **`.claude/skills/label-manager/`** — 标签管理 skill(案例三底层)
+- **`.claude/skills/media-organizer/`** — 极影视诊断 skill(案例二)
+- **`.claude/skills/file-organizer/`** — 文件库诊断 skill
+- **`.claude/skills/ios-memo-bak/`** — iPhone 备忘录同步 skill(案例一)
+- **`.claude/skills/smart-tagger/`** — RAG 搜 + 批量打标 skill(案例三)
+- **`nas-rag-server/`** — NAS 端 RAG docker 服务(smart-tagger 依赖,Phase 1 设计完成)
+- **`docs/articles/2026-07-13-zspace-nas-mcp.md`** — 公众号图文(3 case 完整实战笔记)

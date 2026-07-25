@@ -156,3 +156,32 @@ description: 管理和查询 ZSpace NAS 标签(打标、批量打标、按标签
 - `id` / `created_at` / `updated_at` / `weight` 是 int
 - `label_name` 是 str
 - `top_flag` 是 int(0/1)
+
+---
+
+## 后续可以做(等需求)
+
+- **多轮打标**:用户连续说"再给它们打 XX 标签",Agent 维护上下文
+- **冲突检测**:打标前检查文件已有标签,提示"已有 Y 标签,要覆盖吗"
+- **RAG 联动**:见下方「跟 smart-tagger 协作」
+
+---
+
+## 跟 smart-tagger 协作(案例三)
+
+label-manager 是**标签管理的底层工具**(标签 CRUD + 按元数据找文件)。
+`smart-tagger` skill 是上层组合:**按内容找**(RAG 语义检索) + **批量打标**。
+
+**怎么选**:
+
+| 用户需求 | 走哪个 skill |
+|---|---|
+| 给 .yml 文件打 docker 标签(按扩展名) | **label-manager**(本 skill)场景 2 |
+| 给"一年级教材"打标签(按内容) | **smart-tagger**(走 RAG) |
+| 给 /特定目录/ 下所有文件打标 | **label-manager**(本 skill) |
+| 找所有 docker 标签的文件(反向查) | **label-manager**(本 skill) |
+| 新建/删除标签 | **label-manager**(本 skill) |
+
+**smart-tagger 找到文件后,最终也调本 skill 的 `save_file_label`** — 所以本 skill 是打标的唯一入口(MCP 弹 UI 批准)。
+
+详见 `.claude/skills/smart-tagger/SKILL.md`。
