@@ -26,8 +26,30 @@ python .claude/skills/nas-setup/scripts/check.py
 
 **方式 2**: Agent 手动逐项检查(脚本无法运行时备用)
 1. **检查 `.env` 配置** — Agent 读 .env,检查 NAS_HOST/NAS_USER/NAS_PASSWORD 非空
-2. **验证 NAS 登录** — 调 whoami() MCP tool
+2. **验证 NAS 登录** — 调 list_files MCP tool
 3. **验证 RAG daemon** — 调 index_status() MCP tool
+
+### 如果 .env 缺变量(Agent 交互修复)
+
+check.py 返回 `❌ .env 配置: 不完整` 时,Agent **主动逐条问用户**,不要等用户去编辑:
+
+```
+Agent: "NAS 连接信息缺 2 项:
+  1. NAS_HOST — 极空间的 IP 地址是什么？
+  2. NAS_PASSWORD — 登录密码是什么？
+  请依次告诉我。"
+用户: "192.168.1.100"
+Agent: "收到 NAS_HOST=192.168.1.100。密码呢？"
+用户: "mypassword"
+Agent: [编辑 .env 文件,写入 NAS_HOST 和 NAS_PASSWORD]
+Agent: [重跑 check.py]
+"✅ .env 配置: 完整。剩下 NAS 登录... [继续验证]"
+```
+
+**关键规则**:
+- 不要只打印"请编辑 .env"就完事 — **必须逐条交互问用户**
+- 密码类变量(NAS_PASSWORD/KEY_SSH)不回显
+- 写入 .env 后立即重跑 check.py 验证
 
 ### 检查结果解读
    ```
