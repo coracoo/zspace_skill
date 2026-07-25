@@ -43,6 +43,19 @@ def _load_env_to_os() -> None:
                 os.environ[k] = m.group(2).strip()
 
 
+def check_mcp() -> dict:
+    """检查 MCP Python 包是否可导入。"""
+    sys.path.insert(0, str(PROJECT_ROOT))
+    try:
+        import httpx       # noqa: F401
+        import cryptography # noqa: F401
+        from nas import NasClient  # noqa: F401
+        from mcp_server import mcp # noqa: F401
+        return {"ok": True, "tools": len(mcp._tool_manager._tools)}
+    except ImportError as e:
+        return {"ok": False, "msg": f"MCP 包未安装: {e}. 请 pip install -e . 或 ./start.sh deps"}
+
+
 def check_env() -> dict:
     """检查 .env 文件是否存在 + 变量是否填写。"""
     results = {"checked": True, "issues": [], "vars": {}}
@@ -145,6 +158,7 @@ def main():
     _load_env_to_os()
 
     results = {
+        "mcp": check_mcp(),
         "env": check_env(),
         "login": check_login(),
         "rag": None if args.no_rag else check_rag(),
@@ -161,6 +175,15 @@ def main():
     print("=" * width)
     print("NAS 环境检查")
     print("=" * width)
+    print()
+
+    # 0. MCP
+    mcp = results["mcp"]
+    if mcp["ok"]:
+        print(f"✅ MCP 已安装({mcp['tools']} tools)")
+    else:
+        print(f"❌ MCP 未安装: {mcp.get('msg', '?')}")
+        print(f"   → pip install -e .  或  ./start.sh deps")
     print()
 
     # 1. .env
@@ -204,7 +227,7 @@ def main():
         print()
 
     # 汇总
-    all_ok = env["ok"] and login["ok"]
+    all_ok = env["ok"] and login["ok"] and mcp["ok"]
     rag_ok = results["rag"] is None or results["rag"].get("ok", False)
     print("=" * width)
     if all_ok and rag_ok:
