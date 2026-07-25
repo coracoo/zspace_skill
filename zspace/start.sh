@@ -17,7 +17,7 @@ VENV="$ROOT/.venv"
 PY="$VENV/bin/python"
 ENV_FILE="$ROOT/.env"
 ENV_EXAMPLE="$ROOT/zspace/.env.example"
-LOG_DIR="$ROOT/logs"
+LOG_DIR="$ROOT/dashboard/logs"
 
 # ---- 颜色 ----
 if [[ -t 1 ]]; then
