@@ -1,46 +1,31 @@
 .venv/
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
 *.egg-info/
 .env
-logs/
-.DS_Store
-*.swp
-*~
 .pcweb*.js
+*.pyd
+*.pyo
 
-# RAG 语义搜索向量索引(rag/store.py 默认写到 ~/.cache/zspace-rag/rag.db)
-.cache/zspace-rag/
-# Docker
-Dockerfile
-docker-compose.yml
-.dockerignore
-
-# IDE
+# IDE / OS
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db
 *.swp
 *.swo
 *~
 
-# OS
-.DS_Store
-Thumbs.db
-
-# RAG data
-nas-rag-server/data/
-nas-rag-server/fastembed-cache/
-.cache/
-
-# 临时文件
-/tmp/
-*.tmp
-*.bak
+# Logs
 logs/
 *.log
 
-# Superpowers local state
-.superpowers/sdd/
-docs/superpowers/plans/
+# RAG data & cache
+.cache/zspace-rag/
+.cache/
+nas-rag-server/data/
+nas-rag-server/fastembed-cache/
+
+# Superpowers
+.superpowers/
+docs/superpowers/

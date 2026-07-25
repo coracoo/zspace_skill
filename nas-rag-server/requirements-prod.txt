@@ -1,2 +1,0 @@
-# 部署到 NAS 才需要的(本机测试不装)
-# 已在 requirements.txt 顶部
