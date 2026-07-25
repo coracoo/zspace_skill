@@ -9,6 +9,8 @@ description: Use when 用户想诊断极影视分类问题 — "我的影视库�
 
 ## 概述
 
+**前置**:先调 `nas-setup` skill 验证 NAS 登录(whoami)。如 N001208 自动重登,正常。
+
 通过组合 NAS MCP tool + `media_organizer.py` 脚本,**只读**诊断极影视的"分类不规范"问题。
 **所有写操作都不在 skill 里** — 报告生成后,用户手动决定怎么处理(用 MCP tool 弹 UI 批准)。
 

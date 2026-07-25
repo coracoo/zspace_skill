@@ -9,6 +9,8 @@ description: Use when 用户想把 iPhone 备忘录自动备份到 NAS 记事本
 
 ## 概述
 
+**前置**:先调 `nas-setup` skill 验证 .env 配置 + NAS 登录。没有 SHORTCUT_KEY→setup.py 自动生成。
+
 通过 iOS「快捷指令」(Shortcuts) + NAS dashboard 的 `/shortcut/notepad` 端点,实现备忘录实时备份到 NAS 独立记事本(`location=2`,不污染系统默认记事本)。
 
 **Skill 只做基础设施配置**(生成密钥 + 重启 dashboard + 验证 + 给配置步骤);实际写由 iPhone Shortcut 在用户每次"分享→推"时发起。
