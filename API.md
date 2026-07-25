@@ -1,4 +1,4 @@
-# ZSpace Z4Pro NAS API 速查
+# ZSpace NAS API 速查
 
 > 入口:`http://<nas-ip>:5055`(HTTP)或 `:5056`(HTTPS)
 > 本文档基于对 pcweb JS bundle + openresty 配置 + 实测反推整理,字段名以实测为准。
@@ -876,7 +876,7 @@ NAS 上 `/dev/shm/*.socket` 显示以下服务在跑(全部可通过 openresty �
 
 | 端点 | 实测数据 |
 |------|---------|
-| `/api/fileshare_service/samba/status` | `{audit, guest, host_name, ios_support, mc, ntlm, size, status, tiny_file}` —— 本机 status=true,host=Z4Pro-NY4H |
+| `/api/fileshare_service/samba/status` | `{audit, guest, host_name, ios_support, mc, ntlm, size, status, tiny_file}` —— 本机 status=true,host=Z425-JH1A |
 | `/api/fileshare_service/webdav/status` | `{http_port, https_port, status}` —— 本机 status=true,http_port=5005,https_port=5006 |
 | `/api/fileshare_service/ftp/status` | `{exits, guest, passive, passive_ip, passive_port_start/end, port, status}` —— 本机 status=false(未启),port=21,passive 40000-45000 |
 | `/api/fileshare_service/dlna/status` | `{is_share, status}` —— 本机 status=false |
