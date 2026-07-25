@@ -8,9 +8,9 @@
 
 | 你是 | 你需要 | 不需要 |
 |---|---|---|
-| **MCP 用户**(想让 Claude Code 操作 NAS) | `mcp_server/` + `nas/` + `.env`(**API 内置在 MCP 里**) | Skill / Dashboard / RAG |
-| **Skill 用户**(想用自动化工作流) | 复制 `.claude/skills/<name>/` 到自己项目 | MCP 源码 / Dashboard / RAG |
-| **RAG 用户**(想要语义搜索) | `nas-rag-server/` docker compose | Skill / Dashboard |
+| **MCP 用户**(想让 Claude Code 操作 NAS) | `zspace/mcp_server/` + `zspace/nas/` + `.env`(**API 内置在 MCP 里**) | Skill / Dashboard / RAG |
+| **Skill 用户**(想用自动化工作流) | 复制 `skills/<name>/` 到自己项目 | MCP 源码 / Dashboard / RAG |
+| **RAG 用户**(想要语义搜索) | `rag-server/` docker compose | Skill / Dashboard |
 | **开发者**(想加新 tool/skill) | clone 整个仓库 | — |
 
 ## MCP 用户(3 步装上)
@@ -18,36 +18,36 @@
 ```bash
 # 1. 安装 Python 包
 git clone <repo> && cd zspace-mcp-poc
-pip install -e .                    # 或用 ./start.sh deps
+pip install -e .                    # 或用 ./zspace/start.sh deps
 
 # 2. 配置连接
-cp .env.example .env && vi .env     # 填 NAS_HOST/USER/PASSWORD
+cp zspace/.env.example .env && vi .env     # 填 NAS_HOST/USER/PASSWORD
 
 # 3. 接入 Claude Code
-./start.sh mcp-cfg                  # 打印配置 → 粘到 mcp.json
+./zspace/start.sh mcp-cfg                  # 打印配置 → 粘到 mcp.json
 # 重启 Claude Code,89 tool 自动出现
 ```
 
-首次验证: `python .claude/skills/nas-setup/scripts/check.py`
+首次验证: `python skills/nas-setup/scripts/check.py`
 
 ## Skill 用户(复制到你的项目)
 
 ```bash
 # 把需要的 skill 复制到你的 Claude Code 项目
-cp -r .claude/skills/nas-setup ~/your-project/.claude/skills/
-cp -r .claude/skills/smart-tagger ~/your-project/.claude/skills/
+cp -r skills/nas-setup ~/your-project/skills/
+cp -r skills/smart-tagger ~/your-project/skills/
 # 前提: 你的项目也已配置 MCP(上一步)
 ```
 
-skill 在 `.claude/skills/` 目录下,Claude Code 在该目录启动时自动发现。
+skill 在 `skills/` 目录下,Claude Code 在该目录启动时自动发现。
 当前 6 个 skill: `nas-setup`(前置) `smart-tagger` `media-organizer` `ios-memo-bak` `label-manager` `file-organizer`
 
 ## RAG 用户(Docker 部署到 NAS)
 
 ```bash
-cd nas-rag-server
+cd rag-server
 docker compose up -d                # image: coracoo/cherry:nas_rag
-# 详细: nas-rag-server/README.md
+# 详细: rag-server/README.md
 ```
 
 ## 所有可选组件
@@ -55,26 +55,26 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 | 组件 | 安装方式 | 用途 |
 |---|---|---|
 | MCP(必须) | `pip install -e .` | 89 tool,Claude Code 连 NAS |
-| Skill | 复制到 `.claude/skills/` | 6 个工作流,Agent 自动触发 |
+| Skill | 复制到 `skills/` | 6 个工作流,Agent 自动触发 |
 | RAG docker | `docker compose up -d` | 语义搜索,部署在 NAS 上 |
-| Dashboard | `./start.sh dashboard` | Web UI,iPhone 备忘录入口 |
-| 百度网盘 | `scripts/netdisk_login.py` | OAuth 登录后再用 28 个 znetdisk tool |
+| Dashboard | `./zspace/start.sh dashboard` | Web UI,iPhone 备忘录入口 |
+| 百度网盘 | `tools/scripts/netdisk_login.py` | OAuth 登录后再用 28 个 znetdisk tool |
 
 ```
 用户对 Claude Code 说话                    ← 自然语言
         ↓
-┌─ Skill 层(.claude/skills/) ──────────────┐
+┌─ Skill 层(skills/) ──────────────┐
 │ nas-setup / smart-tagger / media-organizer│  ← LLM 触发词 → 自动加载 SKILL.md
 │ ios-memo-bak / label-manager / file-org  │  ← 组合多个 MCP tool 完成复杂流程
 └──────────────────┬───────────────────────┘
                    ↓ MCP 协议(stdio,JSON-RPC 2.0)
-┌─ MCP 层(mcp_server/) ────────────────────┐
+┌─ MCP 层(zspace/mcp_server/) ────────────────────┐
 │ 89 个 tool(按域分文件)                    │  ← Claude Code mcp.json 配置后自动发现
 │ tools/{files,storage,zvideo,notebook,    │  ← 每个 tool = 1 个 NAS API 端点封装
 │        znetdisk,proxy,rag,...}           │
 └──────────────────┬───────────────────────┘
-                   ↓ HTTP(nas/)
-┌─ 协议层(nas/) ───────────────────────────┐
+                   ↓ HTTP(zspace/nas/)
+┌─ 协议层(zspace/nas/) ───────────────────────────┐
 │ auth.py  RSA 登录 + device_id 选择        │  ← Python 库,Skill 和 MCP 都复用
 │ client.py NasClient(token 自动续)       │
 └──────────────────┬───────────────────────┘
@@ -85,7 +85,7 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 └──────────────────────────────────────────┘
 ```
 
-**三者关系**: Skill 是"做什么"(工作流) → MCP 是"怎么做"(单步操作) → nas/ 是"怎么连"(协议)。新用户只需配 MCP,skill 自动生效。
+**三者关系**: Skill 是"做什么"(工作流) → MCP 是"怎么做"(单步操作) → zspace/nas/ 是"怎么连"(协议)。新用户只需配 MCP,skill 自动生效。
 
 ## 必须 & 可选
 
@@ -94,8 +94,8 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 | `.env` 配置 | ✅ 必须 | NAS 连接信息(NAS_HOST/USER/PASSWORD) |
 | `mcp_server.py` | ✅ 必须 | MCP stdio 服务,Claude Code 连它 |
 | `nas-setup` skill | ✅ 推荐 | 首次跑,验证 env + 登录 + 可选组件 |
-| `nas-rag-server/` docker | 可选 | RAG 语义搜索。不装也能用 86 个 tool,只是 semantic_search 不可用 |
-| `app.py` Dashboard | 可选 | Web 管理界面(iPhone 备忘录入口等) |
+| `rag-server/` docker | 可选 | RAG 语义搜索。不装也能用 86 个 tool,只是 semantic_search 不可用 |
+| `dashboard/app.py` Dashboard | 可选 | Web 管理界面(iPhone 备忘录入口等) |
 | 百度网盘 OAuth | 可选 | 28 个 znetdisk tool 需要先登录 |
 
 ## 安装
@@ -105,25 +105,25 @@ git clone <repo>
 cd zspace-mcp-poc
 
 # 1. 配置连接(必须)
-cp .env.example .env
+cp zspace/.env.example .env
 vi .env   # 填 NAS_HOST / NAS_USER / NAS_PASSWORD
 
 # 2. 装 Python 依赖(必须)
-./start.sh deps
+./zspace/start.sh deps
 
 # 3. 接入 Claude Code(必须)
-./start.sh mcp-cfg   # 打印配置片段,粘到 ~/.config/claude-code/mcp.json
+./zspace/start.sh mcp-cfg   # 打印配置片段,粘到 ~/.config/claude-code/mcp.json
 # 重启 Claude Code → 89 个 tool 自动出现
 
 # 4. 首次验证
-python .claude/skills/nas-setup/scripts/check.py
+python skills/nas-setup/scripts/check.py
 # 输出 ✅✅✅ 即可
 
 # 5. (可选) RAG 语义搜索
-cd nas-rag-server && docker compose up -d    # 需要 NAS docker daemon
+cd rag-server && docker compose up -d    # 需要 NAS docker daemon
 
 # 6. (可选) Web Dashboard
-./start.sh dashboard   # http://localhost:15050
+./zspace/start.sh dashboard   # http://localhost:15050
 ```
 
 ## 使用示例
@@ -146,12 +146,12 @@ Agent 内部执行流程:
 
 ```
 zspace-mcp-poc/
-├── nas/                  NAS 协议层
+├── zspace/nas/                  NAS 协议层
 │   ├── auth.py           RSA 公钥 + device_id 自动选择
 │   ├── proto.py          URL 公共参数
 │   └── client.py         NasClient(token 自动续)
 │
-├── mcp_server/           MCP Server
+├── zspace/mcp_server/           MCP Server
 │   ├── main.py           FastMCP 入口
 │   └── tools/            按域分文件
 │       ├── files.py      文件读写 + 标签
@@ -164,29 +164,29 @@ zspace-mcp-poc/
 │       ├── media.py      音乐/相册
 │       └── rag.py        RAG 语义搜索
 │
-├── app/                  Web Dashboard
+├── dashboard/app/                  Web Dashboard
 │   ├── main.py           FastAPI + Session
 │   └── routes/
 │       ├── shortcut.py   iPhone 备忘录 → NAS 入口
 │       ├── dashboard.py  WebUI
 │       └── files.py,notebook.py,zvideo.py 文件/记事本/影视 CRUD
 │
-├── nas-rag-server/       RAG docker 服务(在 NAS 独立部署，作为文件索引)
-│   ├── app/server.py     /search /reindex /index /unindex /status
+├── rag-server/       RAG docker 服务(在 NAS 独立部署，作为文件索引)
+│   ├── dashboard/app/server.py     /search /reindex /index /unindex /status
 │   ├── Dockerfile + docker-compose.yml
-│   └── docs/03-API.md    REST 协议
+│   └── rag-server/docs/03-API.md    REST 协议
 │
-├── .claude/skills/       5 个自动化 skill
+├── skills/       5 个自动化 skill
 │   ├── ios-memo-bak/     iPhone 备忘录 → 极空间记事本
 │   ├── media-organizer/  极影视分类审计
 │   ├── smart-tagger/     RAG 搜索基础上的批量文件标签管理
 │   ├── label-manager/    标签管理
 │   └── file-organizer/   文件库诊断
 │
-├── mcp_server.py / app.py  shim(入口兼容)
-├── API.md                 NAS 全端点速查
-├── MCP.md                 89 tool 详细文档
-└── start.sh               一键启动(deps/mcp/dashboard/mcp-cfg)
+├── mcp_server.py / dashboard/app.py  shim(入口兼容)
+├── docs/API.md                 NAS 全端点速查
+├── docs/MCP.md                 89 tool 详细文档
+└── zspace/start.sh               一键启动(deps/mcp/dashboard/mcp-cfg)
 ```
 
 ## MCP Tool 清单(89)
@@ -322,22 +322,22 @@ zspace-mcp-poc/
 ## RAG docker 部署(可选)
 
 ```bash
-cd nas-rag-server
+cd rag-server
 docker compose up -d    # image: coracoo/cherry:nas_rag
 # 首次跑 reindex
 curl -X POST http://nas:8000/reindex -H 'Content-Type: application/json' \
   -d '{"scope":"files","full":true}'
 ```
 
-REST API 详见 `nas-rag-server/docs/03-API.md`。
+REST API 详见 `rag-server/rag-server/docs/03-API.md`。
 
 ## 文档
 
 | 文档 | 内容 |
 |---|---|
-| `API.md` | NAS 全端点速查(12 域,~900 行) |
-| `MCP.md` | 89 tool 参数/返回/端点映射 |
-| `nas-rag-server/docs/03-API.md` | RAG REST 协议 |
+| `docs/API.md` | NAS 全端点速查(12 域,~900 行) |
+| `docs/MCP.md` | 89 tool 参数/返回/端点映射 |
+| `rag-server/rag-server/docs/03-API.md` | RAG REST 协议 |
 | `docs/iphone-shortcut.md` | iPhone Shortcut 配置图解 |
 
 ## License

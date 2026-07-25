@@ -36,7 +36,7 @@ async def my_new_tool(param: str) -> str:
 
 ### 加新的 Skill
 
-1. 创建 `.claude/skills/<name>/SKILL.md`(frontmatter 含 `name` + `description` 触发词)
+1. 创建 `skills/<name>/SKILL.md`(frontmatter 含 `name` + `description` 触发词)
 2. (可选)加 Python 脚本做机械活,写操作统一走 MCP tool
 3. 参考 `smart-tagger` 或 `media-organizer` 的格式
 
