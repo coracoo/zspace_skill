@@ -9,7 +9,7 @@ from typing import Any, Dict
 
 NAS_SSH_HOST = "192.168.0.135"
 NAS_SSH_PORT = "57922"
-NAS_SSH_USER = "15068832031"
+NAS_SSH_USER = "<your_phone_number>"
 
 
 def _ssh_perf_snapshot() -> Dict[str, Any]:

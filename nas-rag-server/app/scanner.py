@@ -36,10 +36,48 @@ def is_text_file(path: Path) -> bool:
 
 
 def read_text_safe(path: Path) -> str | None:
+    """根据扩展名读文本:PDF 走 pypdf 提取,其他直接 read_text。
+
+    PDF 限制:前 100 页 + 总文本 ≤ 200KB(避免大 PDF OOM,够 chunker 切 400+ chunks)。
+    扫描版 PDF(图片型)extract_text 返回空,会被 caller 当无内容跳过。
+    """
+    if path.suffix.lower() == ".pdf":
+        return _extract_pdf_text(path)
     try:
         return path.read_text(encoding="utf-8", errors="replace")
     except OSError as e:
         log.debug("read failed %s: %s", path, e)
+        return None
+
+
+def _extract_pdf_text(
+    path: Path,
+    max_pages: int = 100,
+    max_chars: int = 200_000,
+) -> str | None:
+    """pypdf 提取 PDF 文本。失败/扫描版返回 None。"""
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        log.warning("pypdf not installed, skip PDF: %s", path)
+        return None
+    try:
+        reader = PdfReader(str(path))
+        texts: list[str] = []
+        total = 0
+        for i, page in enumerate(reader.pages):
+            if i >= max_pages:
+                log.debug("pdf truncated at %d pages: %s", max_pages, path)
+                break
+            t = page.extract_text() or ""
+            texts.append(t)
+            total += len(t)
+            if total >= max_chars:
+                log.debug("pdf truncated at %d chars: %s", max_chars, path)
+                break
+        return "\n\n".join(texts) if texts else None
+    except Exception as e:
+        log.warning("pdf extract failed %s: %s", path, e)
         return None
 
 

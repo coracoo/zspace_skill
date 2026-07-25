@@ -106,7 +106,7 @@ zspace-mcp-poc/
 - Produces:
   - `nas.auth.NAS_PUBKEY_PEM: bytes`(常量,从 app.py:25-33 / mcp_server.py:61-69 原样搬)
   - `nas.auth.encrypt_field(plain: str) -> str`(RSA-PKCS1v15 + base64)
-  - `nas.auth.resolve_device_id() -> str`(读 env `NAS_DEVICE_ID`,默认 `a6b4bd9ea4839ab4aea6f22b558bf0b2`)
+  - `nas.auth.resolve_device_id() -> str`(读 env `NAS_DEVICE_ID`,默认 `<your_device_id_32_hex>`)
   - `nas.proto.NAS_BASE: str`(从 env 读,默认 `http://192.168.0.135:5055`)
   - `nas.proto.common_query(device_id: str) -> str`(原 mcp_server.py:80-85 的 `_common_query`,改成接 device_id 参数)
   - `nas.proto.append_common_query(url: str, device_id: str) -> str`(原 app.py:513 的 `_append_common_query`)
@@ -142,7 +142,7 @@ wwIDAQAB
 
 _PUBKEY = load_pem_public_key(NAS_PUBKEY_PEM)
 
-NAS_DEVICE_ID_DEFAULT = "a6b4bd9ea4839ab4aea6f22b558bf0b2"
+NAS_DEVICE_ID_DEFAULT = "<your_device_id_32_hex>"
 
 
 def encrypt_field(plain: str) -> str:

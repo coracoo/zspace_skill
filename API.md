@@ -72,7 +72,7 @@ wwIDAQAB
   "code": "200",
   "data": {
     "id": 1,
-    "username": "15068832031",
+    "username": "<your_phone_number>",
     "nickname": "cherry",
     "is_master": 1,
     "actived": 1,
@@ -115,7 +115,7 @@ pcweb 的 axios 拦截器自动给所有请求 URL 追加:
 绕开方法(只读):查 `device.db` 找该用户已登记的 device_id,直接复用。SQL:
 ```sql
 -- 只读查询,在 NAS 上跑
-sqlite3 /zspace/system/db/user.db "SELECT id FROM user WHERE username='15068832031'"
+sqlite3 /zspace/system/db/user.db "SELECT id FROM user WHERE username='<your_phone_number>'"
 sqlite3 /zspace/system/db/device.db "SELECT did, plat, dname FROM device WHERE user_id=<id>"
 ```
 
@@ -998,7 +998,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 PUBKEY = load_pem_public_key(NAS_PUBKEY_PEM)  # 见 1.1
-DEVICE_ID = "a6b4bd9ea4839ab4aea6f22b558bf0b2"  # 复用已登记的 device_id
+DEVICE_ID = "<your_device_id_32_hex>"  # 复用已登记的 device_id
 
 def enc(s: str) -> str:
     return base64.b64encode(PUBKEY.encrypt(s.encode(), padding.PKCS1v15())).decode()
@@ -1006,12 +1006,12 @@ def enc(s: str) -> str:
 # 1) 登录
 c = httpx.Client(timeout=10)
 r = c.post("http://192.168.0.135:5055/auth/login", data={
-    "username": enc("15068832031"),
+    "username": enc("<your_phone_number>"),
     "password": enc(PASSWORD),
     "plat": "web", "device": "linux", "device_id": DEVICE_ID,
 })
 token = r.json()["data"]["token"]
-c.cookies.update({"token": token, "username": "15068832031",
+c.cookies.update({"token": token, "username": "<your_phone_number>",
                   "device_id": DEVICE_ID, "device": "linux", "plat": "web"})
 
 # 2) 公共 query 追加(每个请求都加)

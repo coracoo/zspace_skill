@@ -13,3 +13,34 @@ logs/
 
 # RAG 语义搜索向量索引(rag/store.py 默认写到 ~/.cache/zspace-rag/rag.db)
 .cache/zspace-rag/
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# RAG data
+nas-rag-server/data/
+nas-rag-server/fastembed-cache/
+.cache/
+
+# 临时文件
+/tmp/
+*.tmp
+*.bak
+logs/
+*.log
+
+# Superpowers local state
+.superpowers/sdd/
+docs/superpowers/plans/

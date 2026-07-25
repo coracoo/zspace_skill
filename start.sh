@@ -138,7 +138,7 @@ ${C_BOLD}Claude Code 配置(~/.config/claude-code/mcp.json):${C_OFF}
         "NAS_USER": "$NAS_USER",
         "NAS_PASSWORD": "$NAS_PASSWORD",
         "KEY_SSH": "${KEY_SSH:-}",
-        "NAS_DEVICE_ID": "${NAS_DEVICE_ID:-a6b4bd9ea4839ab4aea6f22b558bf0b2}"
+        "NAS_DEVICE_ID": "${NAS_DEVICE_ID:-<your_device_id_32_hex>}"
       }
     }
   }

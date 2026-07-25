@@ -20,10 +20,10 @@
       "args": ["/home/cc/workspace/zspace-mcp-poc/mcp_server.py"],
       "env": {
         "NAS_HOST": "192.168.0.135",
-        "NAS_USER": "15068832031",
+        "NAS_USER": "<your_phone_number>",
         "NAS_PASSWORD": "你的密码",
         "KEY_SSH": "你的密码",
-        "NAS_DEVICE_ID": "a6b4bd9ea4839ab4aea6f22b558bf0b2"
+        "NAS_DEVICE_ID": "<your_device_id_32_hex>"
       }
     }
   }
@@ -46,7 +46,7 @@
 ### 1.3 验证启动
 
 ```bash
-NAS_USER=15068832031 NAS_PASSWORD=... KEY_SSH=... .venv/bin/python mcp_server.py
+NAS_USER=<your_phone_number> NAS_PASSWORD=... KEY_SSH=... .venv/bin/python mcp_server.py
 # 看到日志 "MCP server 'zspace-nas' starting, 58 tools registered" 即成功
 ```
 

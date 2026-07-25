@@ -111,10 +111,10 @@ uvicorn app:app --host 0.0.0.0 --port 8000
       "args": ["/home/cc/workspace/zspace-mcp-poc/mcp_server.py"],
       "env": {
         "NAS_HOST": "192.168.0.135",
-        "NAS_USER": "15068832031",
+        "NAS_USER": "<your_phone_number>",
         "NAS_PASSWORD": "你的密码",
         "KEY_SSH": "你的密码",
-        "NAS_DEVICE_ID": "a6b4bd9ea4839ab4aea6f22b558bf0b2"
+        "NAS_DEVICE_ID": "<your_device_id_32_hex>"
       }
     }
   }
@@ -266,14 +266,14 @@ zos 给每个 NAS 内网端口分配一个公网子域名:`https://remote-access
 ### 验证
 
 ```bash
-NAS_USER=15068832031 NAS_PASSWORD=... KEY_SSH=... .venv/bin/python mcp_server.py
+NAS_USER=<your_phone_number> NAS_PASSWORD=... KEY_SSH=... .venv/bin/python mcp_server.py
 # 看到日志: "MCP server 'zspace-nas' starting, 50 tools registered" 即成功
 ```
 
 进阶冒烟测试(完整 MCP 握手 + 调用):
 
 ```bash
-NAS_USER=15068832031 NAS_PASSWORD=... KEY_SSH=... .venv/bin/python -c "
+NAS_USER=<your_phone_number> NAS_PASSWORD=... KEY_SSH=... .venv/bin/python -c "
 import asyncio, json, os, sys
 async def m():
     p = await asyncio.create_subprocess_exec(sys.executable, 'mcp_server.py', stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, limit=4*1024*1024)

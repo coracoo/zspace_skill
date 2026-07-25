@@ -20,7 +20,7 @@ wwIDAQAB
 
 _PUBKEY = load_pem_public_key(NAS_PUBKEY_PEM)
 
-NAS_DEVICE_ID_DEFAULT = "a6b4bd9ea4839ab4aea6f22b558bf0b2"
+NAS_DEVICE_ID_DEFAULT = "<your_device_id_32_hex>"
 
 
 def encrypt_field(plain: str) -> str:
