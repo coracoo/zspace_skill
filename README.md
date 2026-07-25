@@ -58,7 +58,7 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 | Skill | 复制到 `skills/` | 6 个工作流,Agent 自动触发 |
 | RAG docker | `docker compose up -d` | 语义搜索,部署在 NAS 上 |
 | Dashboard | `./zspace/start.sh dashboard` | Web UI,iPhone 备忘录入口 |
-| 百度网盘 | `tools/scripts/netdisk_login.py` | OAuth 登录后再用 28 个 znetdisk tool |
+| 百度网盘 | `zspace/scripts/netdisk_login.py` | OAuth 登录后再用 28 个 znetdisk tool |
 
 ```
 用户对 Claude Code 说话                    ← 自然语言
