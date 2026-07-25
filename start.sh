@@ -118,7 +118,7 @@ cmd_mcp() {
   echo "  按 Ctrl+C 退出"
   echo "  日志走 stderr,会输出到启动 Claude Code 的终端"
   echo
-  exec "$PY" mcp/mcp_server.py
+  exec "$PY" -m zspace.mcp_server
 }
 
 # ---- 子命令: mcp-cfg ----
@@ -132,7 +132,8 @@ ${C_BOLD}Claude Code 配置(~/.config/claude-code/mcp.json):${C_OFF}
   "mcpServers": {
     "zspace-nas": {
       "command": "$PY",
-      "args": ["$ROOT/mcp/mcp_server.py"],
+      "args": ["-m", "zspace.mcp_server"],
+      "cwd": "$ROOT",
       "env": {
         "NAS_HOST": "$NAS_HOST",
         "NAS_USER": "$NAS_USER",
