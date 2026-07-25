@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Optional
 
 from mcp.server.fastmcp import FastMCP
 
-from zspace.nas import NasClient
+from nas import NasClient
 
 if TYPE_CHECKING:  # pragma: no cover
     from zspace.mcp_server.zenith import ZenithSession

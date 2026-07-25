@@ -10,7 +10,7 @@ from typing import Any, Dict
 
 import httpx
 
-from zspace.nas import NAS_BASE, NAS_DEVICE_ID_DEFAULT
+from nas import NAS_BASE, NAS_DEVICE_ID_DEFAULT
 
 
 async def nas_get(client: httpx.AsyncClient, path: str) -> Dict[str, Any]:

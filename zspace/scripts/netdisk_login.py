@@ -28,7 +28,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # scripts/ -> zspace/ -> repo
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from zspace.mcp_server import NasClient  # noqa: E402
+from nas import NasClient  # noqa: E402
 
 
 async def fetch_oauth_url(nas: NasClient) -> dict:

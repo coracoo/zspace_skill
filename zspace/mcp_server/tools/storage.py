@@ -5,7 +5,7 @@
 from zspace.mcp_server import main as _main
 from zspace.mcp_server.main import mcp
 from zspace.mcp_server.perf import _to_json, _parse_zstatus, _ssh_perf
-from zspace.nas.proto import NAS_BASE, common_query
+from nas.proto import NAS_BASE, common_query
 
 
 # ---- 存储池(4 读)----

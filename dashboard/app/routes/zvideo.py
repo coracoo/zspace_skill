@@ -9,7 +9,7 @@ from fastapi import APIRouter, Form, Request
 
 from dashboard.app.nas_helpers import append_common_query, nas_post
 
-from zspace.nas import NAS_BASE
+from nas import NAS_BASE
 
 log = logging.getLogger("zspace-poc")
 router = APIRouter()

@@ -17,4 +17,5 @@ requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["zspace/nas*", "zspace/mcp_server*"]
+where = ["."]
+include = ["nas*", "zspace*"]

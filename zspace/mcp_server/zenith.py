@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Optional
 import httpx
 
 if TYPE_CHECKING:  # pragma: no cover
-    from zspace.nas import NasClient
+    from nas import NasClient
 
 # 用户可从浏览器复制的完整 cloud cookie(填 device_id/sign/nasId/cloudPubKey 等)
 ZENITH_COOKIE_EXTRA = os.environ.get("ZENITH_COOKIE", "").strip()

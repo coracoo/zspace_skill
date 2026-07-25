@@ -13,7 +13,7 @@ from typing import Dict, Optional
 
 import httpx
 
-from zspace.nas import NAS_BASE, encrypt_field, resolve_device_id
+from nas import NAS_BASE, encrypt_field, resolve_device_id
 
 log = logging.getLogger("zspace-poc")
 

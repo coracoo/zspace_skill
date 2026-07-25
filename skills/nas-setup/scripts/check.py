@@ -49,7 +49,7 @@ def check_mcp() -> dict:
     try:
         import httpx       # noqa: F401
         import cryptography # noqa: F401
-        from zspace.nas import NasClient  # noqa: F401
+        from nas import NasClient  # noqa: F401
         from zspace.mcp_server import mcp # noqa: F401
         return {"ok": True, "tools": len(mcp._tool_manager._tools)}
     except ImportError as e:
@@ -104,7 +104,7 @@ def check_login() -> dict:
     """尝试 NAS 登录,调 whoami。"""
     try:
         sys.path.insert(0, str(PROJECT_ROOT))
-        from zspace.mcp_server import NasClient
+        from nas import NasClient
         import asyncio
 
         async def _try():

@@ -17,7 +17,7 @@ from dashboard.app.nas_helpers import append_common_query, nas_get, nas_post
 from dashboard.app.perf import get_perf_cached
 from dashboard.app.zstatus import build_breadcrumb, parse_zstatus
 
-from zspace.nas import NAS_BASE
+from nas import NAS_BASE
 
 router = APIRouter()
 

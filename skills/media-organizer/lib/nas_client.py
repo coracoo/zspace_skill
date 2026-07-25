@@ -28,6 +28,6 @@ def _load_env():
 
 _load_env()
 
-from zspace.mcp_server import NasClient  # noqa: E402
+from nas import NasClient  # noqa: E402
 
 __all__ = ["NasClient", "PROJECT_ROOT"]

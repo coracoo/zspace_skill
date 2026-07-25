@@ -28,7 +28,7 @@ def _load_env():
 
 _load_env()
 
-from zspace.mcp_server import NasClient  # noqa: E402
+from nas import NasClient  # noqa: E402
 
 # 全局 client + event loop(脚本同步调用)
 _client = None
