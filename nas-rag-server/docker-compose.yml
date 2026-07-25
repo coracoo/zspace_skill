@@ -8,7 +8,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./fastembed-cache:/root/.cache/fastembed
-      - /tmp/zfsv3/sata14/<your_user_id>/data/课程资料/课本:/nas_data:ro
+      - /your/nas/path:/nas_data:ro
     environment:
       - RAG_DB_PATH=/app/data/rag.db
       - FASTEMBED_CACHE_DIR=/root/.cache/fastembed
