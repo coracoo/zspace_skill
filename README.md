@@ -262,7 +262,7 @@ zspace-mcp-poc/
 | `list_albums` | 相册列表 |
 | `list_album_feeds` | 相册内容 |
 
-### RAG 语义搜索(3)— 需要 nas-rag-server docker
+### RAG 语义搜索(3)— 需要 rag-server docker
 
 | Tool | 用途 |
 |---|---|

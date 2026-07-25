@@ -1,4 +1,4 @@
-# nas-rag-server
+# rag-server
 
 NAS docker RAG 服务 — bge-small-zh-v1.5 + sqlite-vec + FastAPI。
 
@@ -47,7 +47,7 @@ REST 协议详细见 [docs/03-API.md](docs/03-API.md)。
 ## 文件结构
 
 ```
-nas-rag-server/
+rag-server/
 ├── app/
 │   ├── server.py    FastAPI 5 端点
 │   ├── embedder.py  bge-small-zh-v1.5 模型

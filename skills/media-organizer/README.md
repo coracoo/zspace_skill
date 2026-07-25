@@ -8,7 +8,7 @@ Claude Code skill,**只读**诊断 ZSpace NAS 极影视的"分类不规范"问�
 ## 目录结构
 
 ```
-.claude/skills/media-organizer/
+skills/media-organizer/
 ├── SKILL.md             # LLM 读的工作流(触发词 + 4 命令 + 场景示例)
 ├── media_organizer.py   # Python CLI:audit-classifications / sources / collections / all
 ├── lib/
@@ -66,19 +66,19 @@ Claude Code skill,**只读**诊断 ZSpace NAS 极影视的"分类不规范"问�
 
 ```bash
 # 单独跑
-.venv/bin/python .claude/skills/media-organizer/media_organizer.py audit-classifications
-.venv/bin/python .claude/skills/media-organizer/media_organizer.py audit-sources
-.venv/bin/python .claude/skills/media-organizer/media_organizer.py audit-collections --sample 8
-.venv/bin/python .claude/skills/media-organizer/media_organizer.py suggest-moves --sample 30 --output /tmp/moves.json
-.venv/bin/python .claude/skills/media-organizer/media_organizer.py audit-all --sample 8 --suggest-sample 30 --output /tmp/audit.json
+.venv/bin/python skills/media-organizer/media_organizer.py audit-classifications
+.venv/bin/python skills/media-organizer/media_organizer.py audit-sources
+.venv/bin/python skills/media-organizer/media_organizer.py audit-collections --sample 8
+.venv/bin/python skills/media-organizer/media_organizer.py suggest-moves --sample 30 --output /tmp/moves.json
+.venv/bin/python skills/media-organizer/media_organizer.py audit-all --sample 8 --suggest-sample 30 --output /tmp/audit.json
 
 # 烟雾测试
-bash .claude/skills/media-organizer/tests/smoke.sh
+bash skills/media-organizer/tests/smoke.sh
 
 # SKILL.md 格式检查
 python3 -c "
 import yaml, re
-content = open('.claude/skills/media-organizer/SKILL.md').read()
+content = open('skills/media-organizer/SKILL.md').read()
 m = re.match(r'^---\n(.+?)\n---', content, re.DOTALL)
 print(yaml.safe_load(m.group(1)).keys())
 "

@@ -8,7 +8,7 @@ MCP tool 是原子能力,这个 skill 是编排 + 机械活(扫目录、过滤�
 ## 目录结构
 
 ```
-.claude/skills/label-manager/
+skills/label-manager/
 ├── SKILL.md            # LLM 读的工作流(触发词 + 5 场景 + 调用示例)
 ├── label_manager.py    # Python CLI:list-labels / scan / find-by-label
 ├── lib/
@@ -57,19 +57,19 @@ from mcp_server import NasClient, _to_json
 
 ```bash
 # 烟雾测试(列标签 + 扫目录 + 反向查)
-bash .claude/skills/label-manager/tests/smoke.sh
+bash skills/label-manager/tests/smoke.sh
 
 # 单独测
-.venv/bin/python .claude/skills/label-manager/label_manager.py list-labels
-.venv/bin/python .claude/skills/label-manager/label_manager.py scan \
+.venv/bin/python skills/label-manager/label_manager.py list-labels
+.venv/bin/python skills/label-manager/label_manager.py scan \
   --root /sata14/my/data/ --ext yml --max-depth 2
-.venv/bin/python .claude/skills/label-manager/label_manager.py find-by-label \
+.venv/bin/python skills/label-manager/label_manager.py find-by-label \
   --label docker --root /sata14/my/data/ --max-depth 3
 
 # SKILL.md 格式检查
 python3 -c "
 import yaml, re
-content = open('.claude/skills/label-manager/SKILL.md').read()
+content = open('skills/label-manager/SKILL.md').read()
 m = re.match(r'^---\n(.+?)\n---', content, re.DOTALL)
 print(yaml.safe_load(m.group(1)).keys())
 "
