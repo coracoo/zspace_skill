@@ -72,7 +72,7 @@ def find_dashboard_port() -> int:
             m = re.search(r"uvicorn[^\n]*--port (\d+)", line)
             if m:
                 return int(m.group(1))
-    return 8000  # fallback
+    return 15050  # fallback
 
 
 def find_nas_lan_ip() -> str:

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ZSpace NAS PoC + MCP 快速启动脚本
 # 用法: ./start.sh <command>
-#   dashboard  启动 Web dashboard(默认端口 8000,后台运行,日志到 logs/)
+#   dashboard  启动 Web dashboard(默认端口 15050,后台运行,日志到 logs/)
 #   mcp        启动 MCP server(stdio 前台运行,等 Claude Code 连接)
 #   mcp-cfg    打印 Claude Code 的 mcp.json 配置片段
 #   env        显示当前生效的环境变量(密码遮蔽)
@@ -93,13 +93,13 @@ cmd_dashboard() {
   fi
 
   info "启动 dashboard(后台)…"
-  nohup "$PY" -m uvicorn app:app --host 0.0.0.0 --port 8000 \
+  nohup "$PY" -m uvicorn app:app --host 0.0.0.0 --port 15050 \
     >>"$log_file" 2>&1 &
   echo $! > "$pid_file"
   sleep 1.5
   if kill -0 "$(cat "$pid_file")" 2>/dev/null; then
     ok "dashboard 已启动"
-    echo "  URL:     http://localhost:8000  或  http://${NAS_HOST}:8000"
+    echo "  URL:     http://localhost:15050  或  http://${NAS_HOST}:15050"
     echo "  PID:     $(cat "$pid_file")"
     echo "  日志:    $log_file  (tail -f 看实时)"
     echo "  停止:    kill \$(cat $pid_file)"
@@ -184,7 +184,7 @@ ${C_BOLD}ZSpace NAS PoC + MCP 启动脚本${C_OFF}
 用法:  ./start.sh <command>
 
 命令:
-  ${C_GREEN}dashboard${C_OFF}   启动 Web dashboard(后台,http://localhost:8000)
+  ${C_GREEN}dashboard${C_OFF}   启动 Web dashboard(后台,http://localhost:15050)
   ${C_GREEN}mcp${C_OFF}         启动 MCP server(stdio 前台,给 Claude Code 用)
   ${C_GREEN}mcp-cfg${C_OFF}     打印 Claude Code 的 mcp.json 配置片段
   ${C_GREEN}env${C_OFF}         查看当前生效的环境变量(密码遮蔽)
