@@ -24,12 +24,12 @@ sshpass -p "$KEY_SSH" ssh user@nas \
 ## 2. 拷贝项目到 NAS
 
 ```bash
-# 整个 nas-rag-server/ 目录(自包含,不依赖主项目其他代码)
-scp -r nas-rag-server/ user@nas:/zspace/zsrp/nas-rag-server/
+# 整个 rag-server/ 目录(自包含,不依赖主项目其他代码)
+scp -r rag-server/ user@nas:/zspace/zsrp/rag-server/
 
 # SSH 进去验证结构
 ssh user@nas
-cd /zspace/zsrp/nas-rag-server
+cd /zspace/zsrp/rag-server
 ls
 # 应该有 app/ Dockerfile docker-compose.yml requirements.txt docs/
 ```
@@ -37,7 +37,7 @@ ls
 ## 3. Docker 构建 + 启动
 
 ```bash
-cd /zspace/zsrp/nas-rag-server
+cd /zspace/zsrp/rag-server
 docker compose build
 docker compose up -d
 
@@ -114,14 +114,14 @@ NAS 端 systemd 文件 `/etc/systemd/system/zspace-rag.service`:
 
 ```ini
 [Unit]
-Description=nas-rag-server (bge-small-zh-v1.5 RAG)
+Description=rag-server (bge-small-zh-v1.5 RAG)
 After=docker.service
 Requires=docker.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/zspace/zsrp/nas-rag-server
+WorkingDirectory=/zspace/zsrp/rag-server
 ExecStart=/usr/bin/docker compose up -d
 ExecStop=/usr/bin/docker compose down
 TimeoutStartSec=0
@@ -155,7 +155,7 @@ curl -X POST http://nas:8100/reindex \
 
 ## 8. NAS 文件挂载与扫描路径
 
-`/zspace/zsrp/nas-rag-server/app/config.py`:
+`/zspace/zsrp/rag-server/app/config.py`:
 ```python
 DEFAULT_SCAN_ROOTS = [
     "/sata14/my/data/",
@@ -179,7 +179,7 @@ NAS 端 cron 每天备份 sqlite:
 
 ```bash
 # 在新 NAS 上:
-# 1. 复制 nas-rag-server/ + rag.db + fastembed/ 三个东西
+# 1. 复制 rag-server/ + rag.db + fastembed/ 三个东西
 # 2. docker compose up
 # 3. 改 openresty 反代
 ```
