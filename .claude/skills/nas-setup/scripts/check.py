@@ -25,6 +25,7 @@ ENV_FILE = PROJECT_ROOT / ".env"
 # 必需/推荐的 env 变量
 REQUIRED_VARS = ["NAS_HOST", "NAS_USER", "NAS_PASSWORD"]
 RECOMMENDED_VARS = ["NAS_DEVICE_ID", "NAS_RAG_URL"]
+OPTIONAL_VARS = ["KEY_SSH", "NAS_SSH_PORT"]  # 仅 perf_snapshot 需要,不影响其他功能
 
 
 def _load_env_to_os() -> None:
@@ -62,7 +63,7 @@ def check_env() -> dict:
         if m:
             env_vars[m.group(1)] = m.group(2).strip()
 
-    for var in REQUIRED_VARS + RECOMMENDED_VARS:
+    for var in REQUIRED_VARS + RECOMMENDED_VARS + OPTIONAL_VARS:
         val = env_vars.get(var, "")
         is_empty = not val or "你的" in val or "<" in val  # 占位符也算空
         # 遮蔽敏感值
@@ -79,6 +80,8 @@ def check_env() -> dict:
             results["issues"].append(f"必需变量 {var} 未填写(当前: {val or '(空)'})")
         elif is_empty and var in RECOMMENDED_VARS:
             results["issues"].append(f"推荐变量 {var} 未设置({'(空)' if not val else '占位符'})")
+        elif is_empty and var in OPTIONAL_VARS:
+            pass  # 可选变量,不报 issue
 
     results["ok"] = len(results["issues"]) == 0
     return results
