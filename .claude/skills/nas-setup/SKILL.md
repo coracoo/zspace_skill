@@ -19,32 +19,17 @@ description: Use when 用户说"连不上 NAS"、"检查 NAS 连接状态"、"NA
 
 ### 前置检查(每次被触发时执行)
 
-1. **检查 `.env` 配置**(必需,Agent 自己读文件)
-   ```
-   读 .env,检查以下关键变量是否非空:
-     NAS_HOST  NAS_USER  NAS_PASSWORD  NAS_DEVICE_ID
-   ```
-   - 缺少任何一项 → 告诉用户:"请在 .env 里填 xxx"
-   - `.env` 文件不存在 → "请 cp .env.example .env 并填入真实值"
+**方式 1(推荐)**: exec 自动化脚本,一次性输出全部结果
+```
+python .claude/skills/nas-setup/scripts/check.py
+```
 
-2. **验证 NAS 登录**
-   ```
-   调 whoami() MCP tool
-   ```
-   - code=200 → 登录通 ✅
-   - N001208 → token 失效,NasClient 会自动重登(正常,忽略)
-   - N001414 → device_id 不在 NAS 已登记列表,"把真实 device_id 填入 .env 的 NAS_DEVICE_ID"
-   - N001200 → RSA 公钥不对(NAS 固件版本跟公钥不匹配),"更新 nas/auth.py 的公钥"
-   - 超时/连不上 → "检查 NAS_HOST 是否正确,网络是否通"
+**方式 2**: Agent 手动逐项检查(脚本无法运行时备用)
+1. **检查 `.env` 配置** — Agent 读 .env,检查 NAS_HOST/NAS_USER/NAS_PASSWORD 非空
+2. **验证 NAS 登录** — 调 whoami() MCP tool
+3. **验证 RAG daemon** — 调 index_status() MCP tool
 
-3. **验证 RAG daemon**(可选,需要 RAG 的 skill 触发时才执行)
-   ```
-   调 index_status() MCP tool
-   ```
-   - 返回 model/chunks → daemon 在线 ✅
-   - 超时/error → "RAG 语义搜索不可用(daemon 没跑)。跑 `cd nas-rag-server && docker compose up -d` 启动"
-
-4. **汇总报告**
+### 检查结果解读
    ```
    ✅ NAS 登录:通(用户 xxx)
    ✅ device_id:有效
