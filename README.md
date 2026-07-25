@@ -1,28 +1,132 @@
-# ZSpace NAS PoC + MCP Server
+# ZSpace NAS MCP — 让 Claude 直接操作你的极空间
 
-两部分:
-1. **Dashboard PoC**(`app.py`)— FastAPI Web UI,验证 NAS API 可用性,带总览/存储池/极影视/记事本/写测试 5 大 tab
-2. **MCP Server**(`mcp_server.py`)— **58 个 tool**(40 读 + 18 写),让 Claude Code/Cursor 直接操作 NAS。
-   RAG 语义搜索为**可选模块**(3 个 tool),需单独安装 `rag/` 包;未安装时自动禁用,详见下文「RAG」一节。
+[![MCP Tools](https://img.shields.io/badge/MCP_Tools-89-blue)](mcp_server/tools/)
+[![Skills](https://img.shields.io/badge/Skills-5-green)](.claude/skills/)
+[![Python](https://img.shields.io/badge/Python-3.13+-yellow)](requirements.txt)
+[![License](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE)
 
-### 目录结构
+把极空间 NAS 从"只能点官方 app"变成 **AI Agent 的后花园**:89 个 MCP tool + 5 个自动化 skill + 3 个真实使用 case(iPhone 备忘录同步、极影视整理、RAG 语义搜打标)。
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ 本机(MCP 客户端:Claude Code / Cursor / Claude Desktop)    │
+│   接收自然语言 → 决定调哪些 MCP tool                         │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ MCP 协议(stdio)
+┌──────────────────────────▼───────────────────────────────────┐
+│ mcp_server/          86 basic tools + 3 RAG                  │
+│ tools/{files,storage,zvideo,media,shares,notebook,proxy,     │
+│        znetdisk,zdrive,rag}                                  │
+│   写完 trigger write hook → rag_hook → RAG 增量索引         │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ HTTP(httpx)
+┌──────────────────────────▼───────────────────────────────────┐
+│ nas/                 NAS 协议层                               │
+│ auth.py    RSA-PKCS1v15 加密 + device_id 短信绕过            │
+│ client.py  NasClient(token 自动续,断线重登)                 │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ HTTP
+┌──────────────────────────▼───────────────────────────────────┐
+│ ZSpace NAS :5055          NAS Docker(:8000,可选)              │
+│ /v2/file/* /zvideo/*      nas-rag-server                     │
+│ /v2/file/notepad/*        bge-small-zh-v1.5 + sqlite-vec     │
+│ /znetdisk/* /zdrive/*     PDF 文本提取 + KNN 语义搜索         │
+└──────────────────────────────────────────────────────────────┘
+```
+
+## 3 分钟跑起来
+
+```bash
+git clone <repo-url>
+cd zspace-mcp-poc
+
+# 1. 配置
+cp .env.example .env
+vi .env  # 填 4 个必填项:
+         #   NAS_HOST=192.168.x.x
+         #   NAS_USER=<手机号>
+         #   NAS_PASSWORD=<密码>
+         #   NAS_DEVICE_ID=<已登记设备的 32 字符 hex> (绕短信验证,可选)
+
+# 2. 装依赖
+./start.sh deps
+
+# 3. 启动 MCP server
+./start.sh mcp-cfg   # 打印 Claude Code 的 mcp.json 配置片段,粘过去
+# 重启 Claude Code,89 个 tool 自动出现
+
+# 4. (可选)Web Dashboard
+./start.sh dashboard  # http://localhost:8000,5 个 tab
+
+# 5. (可选)RAG 语义搜索 docker 服务
+cd nas-rag-server && docker compose up -d  # 需要 NAS docker daemon
+```
+
+## 代码路由 & 路径分类
 
 ```
 zspace-mcp-poc/
-├── nas/                          # NAS 协议层(纯函数 + 常量)
-│   ├── __init__.py               # 重导出 NasClient / encrypt / pubkey 等
-│   ├── auth.py                   # RSA 公钥 PEM + encrypt() + resolve_device_id()
-│   ├── proto.py                  # NAS_BASE, _common_query(), _append_common_query()
-│   └── client.py                 # NasClient(async,从 mcp_server.py:88-259 搬过来)
+├── nas/                     ← NAS 协议层(纯函数,4 文件)
+│   ├── auth.py              RSA 公钥 + device_id 自动选择
+│   ├── proto.py             NAS_BASE URL + 公共 query 参数
+│   └── client.py            NasClient(async, token 自动续)
 │
-├── mcp_server/                   # MCP server 按域拆
-│   ├── __init__.py               # from .client import NasClient; from .main import main
-│   ├── main.py                   # FastMCP 实例 + 启动逻辑
-│   ├── zenith.py                 # ZenithSession(云代理 session)
-│   ├── perf.py                   # _parse_perf / _ssh_perf / _parse_zstatus
-│   ├── rag_hook.py               # _rag_hook + RAG 占位
-│   └── tools/
-│       ├── __init__.py
+├── mcp_server/              ← MCP Server(按域分,15 文件)
+│   ├── main.py              FastMCP 实例 + 启动逻辑
+│   └── tools/               ← 89 个 tool 按域分文件
+│       ├── files.py         (12 tool) 文件读写 + 标签
+│       ├── storage.py       (8 tool)  存储池 / 硬件 / SMART / 监控
+│       ├── zvideo.py        (8 tool)  极影视 分类 / 刮削 / 列表
+│       ├── notebook.py      (17 tool) 记事本 CRUD + 分类 + 历史
+│       ├── znetdisk.py      (28 tool) 百度网盘(auth/file/task/sync/share)
+│       ├── proxy.py         (4 tool)  远程访问云代理
+│       ├── shares.py / media.py / rag.py (其余)
+│
+├── app/                     ← FastAPI Dashboard(按域分 router,16 文件)
+│   ├── main.py              create_app + 注册所有 router
+│   └── routes/
+│       ├── auth.py          /login /logout
+│       ├── dashboard.py     /dashboard/{overview,storage,zvideo,notebook}
+│       ├── shortcut.py      /shortcut/notepad (iPhone 备忘录入口)
+│       ├── files.py         /action/{mkdir,move,copy,remove,...}
+│       ├── notebook.py      /action/notebook-* (24 端点)
+│       └── zvideo.py/proxy.py
+│
+├── nas-rag-server/          ← NAS Docker RAG 服务(独立部署,10 文件)
+│   ├── app/server.py        FastAPI 5 端点(/search /reindex /index /unindex /status)
+│   ├── app/scanner.py       DFS 扫 NAS 文件 + pypdf PDF 提取
+│   ├── app/embedder.py      bge-small-zh-v1.5 模型加载
+│   ├── app/store.py         sqlite-vec KNN 向量检索
+│   ├── Dockerfile + docker-compose.yml
+│
+├── rag/                     ⚠️ 已过时(被 nas-rag-server 取代,保留作参考)
+│
+├── .claude/skills/          ← 5 个 Agent 自动化 skill
+│   ├── ios-memo-bak/        Case 1: iPhone 备忘录 → NAS 记事本
+│   ├── media-organizer/     Case 2: 极影视分类只读审计
+│   ├── smart-tagger/        Case 3: RAG 语义搜 → 批量打标
+│   ├── label-manager/       辅助:标签 CRUD + 反向查询
+│   └── file-organizer/      辅助:文件库重复/孤儿诊断
+│
+├── mcp_server.py / app.py   ← 薄 shim(保持外部入口兼容)
+├── start.sh                 ← 一键启动(deps / mcp / dashboard / mcp-cfg)
+├── requirements.txt
+├── API.md                   ← NAS 全端点速查(~900 行,12 个域)
+├── MCP.md                   ← 89 个 MCP tool 详细文档
+└── docs/
+    ├── articles/            ← 公众号图文(3 case 完整实战笔记)
+    └── iphone-shortcut.md   ← iPhone Shortcut 配置图解
+```
+
+## 模块关系
+
+| 入口 | 角色 | 启动方式 | 端口 |
+|---|---|---|---|
+| `mcp_server.py` → `mcp_server/` | MCP Server(stdio) | `./start.sh mcp` | — |
+| `app.py` → `app/` | Web Dashboard | `./start.sh dashboard` | 8000 |
+| `nas-rag-server/` | RAG 语义搜索 docker | `docker compose up -d` | 8000(容器) |
+
+包依赖: `app/` → `nas/` → NAS HTTP,`mcp_server/` → `nas/` + `rag/`(可选) → NAS HTTP + NAS Docker。
 │       ├── files.py              # 文件类 tool(12 个)
 │       ├── storage.py            # 池/硬件/SMART/监控(8 个)
 │       ├── zvideo.py             # 影视 8 个 tool
@@ -68,17 +172,14 @@ zspace-mcp-poc/
     └── smart-tagger/             # RAG 搜 + 批量打标 skill(案例三)
 ```
 
-### 当前完成情况
+### 当前版本
 
-| 模块 | 状态 | 说明 |
-|------|------|------|
-| Dashboard PoC(`app.py`) | ✅ 完成 | 5 个 tab,含 `/shortcut/notepad` iPhone 推备忘录入口 |
-| MCP Server 58 tool | ✅ 完成 | 文件/存储池/监控/影视/音乐/相册/下载/分享/共享/记事本/远程访问 全覆盖 |
-| 📒 记事本 MCP(17 tool) | ✅ 完成 | 8 读 + 9 写,含标签/分类/置顶/历史版本 |
-| 🏷️ label-manager skill | ✅ 完成 | `.claude/skills/label-manager/` — 打标/批量打标/反向查找 |
-| 🎬 media-organizer skill | ✅ 完成 | `.claude/skills/media-organizer/` — 只读诊断极影视分类 |
-| 📱 iPhone Shortcut 同步 | ✅ 完成 | `docs/iphone-shortcut.md` — 备忘录 → NAS,emoji/entity 转换 + 渲染激活 |
-| 🔍 RAG 全局语义搜索 | ⚠️ 可选 | bge-small-zh-v1.5 + sqlite-vec + fastembed,3 个 tool,写时被动增量。`rag/` 包未内置,需单独安装;未安装时自动禁用 |
+| 组件 | 数量 | 说明 |
+|---|---|---|
+| MCP tools | **89** | 58 基础(文件/影视/记事本/监控/共享/远程访问) + 28 百度网盘 + 3 RAG |
+| Skills | **5** | ios-memo-bak / media-organizer / smart-tagger / label-manager / file-organizer |
+| NAS API 域 | **12** | 文件 / 影视 / 记事本 / 标签 / 存储池 / 共享 / 监控 / 远程 / 百度网盘 / 多网盘 / OneDrive / 下载 |
+| RAG 模型 | bge-small-zh-v1.5 | 512 维,~100MB,sqlite-vec KNN,已 docker 化(nas-rag-server) |
 
 ## 一、Dashboard PoC
 
