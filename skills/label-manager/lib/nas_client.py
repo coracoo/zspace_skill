@@ -7,11 +7,11 @@
 
 路径处理:
   - 这个文件在 skills/label-manager/lib/nas_client.py
-  - 项目根 = parents[4](lib → label-manager → skills → .claude → 项目根)
+  - 项目根 = parents[3](lib → label-manager → skills → skills → repo)
 
 env 加载顺序:
   - mcp_server.py 顶层会读 env(NAS_USER / NAS_PASSWORD)
-  - 必须在 import mcp_server 之前加载 .env
+  - 必须在 import zspace.mcp_server 之前加载 .env
   - 所以 _load_env() 放在 from zspace.mcp_server import 之前
 """
 import os
@@ -42,7 +42,7 @@ def _load_env():
         os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 
-_load_env()  # 必须在 import mcp_server 之前
+_load_env()  # 必须在 import zspace.mcp_server 之前
 
 from zspace.mcp_server import NasClient, _to_json  # noqa: E402
 

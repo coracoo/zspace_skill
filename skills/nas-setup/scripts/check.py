@@ -19,7 +19,7 @@ import re
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]  # scripts/ -> nas-setup/ -> skills/ -> .claude/ -> repo
+PROJECT_ROOT = Path(__file__).resolve().parents[3]  # scripts/ -> nas-setup/ -> skills/ -> skills/ -> repo
 ENV_FILE = PROJECT_ROOT / ".env"
 
 # 必需/推荐的 env 变量

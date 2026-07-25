@@ -66,7 +66,7 @@ def update_env_key(key: str) -> None:
 
 
 def find_dashboard_port() -> int:
-    """从 app/main.py uvicorn 启动行读端口"""
+    """从 dashboard/app/main.py uvicorn 启动行读端口"""
     if APP_MAIN.exists():
         for line in APP_MAIN.read_text().splitlines():
             m = re.search(r"uvicorn[^\n]*--port (\d+)", line)

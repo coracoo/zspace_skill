@@ -5,7 +5,7 @@
 - 只读操作走脚本(扫目录、反向查标签、列标签)
 - 写操作走 MCP tool(让 LLM 显式确认) — 所以这里不提供 apply / delete 子命令
 - N150 限速:串行不并发,每步 sleep 0.1s,扫目录 max-depth 默认 5
-- 复用 mcp_server.py 的 NasClient,不重复实现登录
+- 复用 zspace.mcp_server.py 的 NasClient,不重复实现登录
 
 用法:
   python label_manager.py list-labels
@@ -26,7 +26,7 @@ from lib.nas_client import NasClient, PROJECT_ROOT, _load_env  # noqa: E402
 
 
 def _ensure_env():
-    """env 已经在 import lib.nas_client 时加载过了(它要 import mcp_server,必须先有 env)。
+    """env 已经在 import lib.nas_client 时加载过了(它要 import zspace.mcp_server,必须先有 env)。
     这里再调一次是兜底 + 给清晰的错误信息。"""
     try:
         _load_env()
