@@ -23,7 +23,7 @@ save_file_label(label_names="一年级", paths="...")  → MCP 弹 UI 让用户�
 ## 依赖
 
 - MCP tool:`semantic_search`(RAG)、`save_file_label`、`list_file_labels`
-- RAG daemon:`nas-rag-server/`(Phase 2 待做) — 没跑时降级走 `label-manager scan`
+- RAG daemon:`rag-server/`(Phase 2 待做) — 没跑时降级走 `label-manager scan`
 
 ## 跟 label-manager 的分工
 

@@ -55,18 +55,18 @@ async def lifespan(app: FastAPI):
     init_db()
     set_meta("model", config.MODEL_NAME)
     log.info(
-        "nas-rag-server starting (model=%s dim=%d db=%s)",
+        "rag-server starting (model=%s dim=%d db=%s)",
         config.MODEL_NAME, config.EMBED_DIM, DB_PATH,
     )
     log.info("scan roots: %s", config.SCAN_ROOTS)
     log.info("whitelist exts: %s", sorted(WHITELIST_EXTS))
     log.info("max file size: %d KB", MAX_FILE_SIZE // 1024)
     yield
-    log.info("nas-rag-server shutdown")
+    log.info("rag-server shutdown")
 
 
 app = FastAPI(
-    title="nas-rag-server",
+    title="rag-server",
     description="NAS 端 RAG 服务(bge-small-zh-v1.5 + sqlite-vec)。详见 docs/03-API.md",
     version="0.1.0",
     lifespan=lifespan,

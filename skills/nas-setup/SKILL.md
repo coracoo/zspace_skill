@@ -78,4 +78,4 @@ Agent: [重跑 check.py]
 | `NAS_USER/NAS_PASSWORD` 为空 | 编辑 `.env` 填入 |
 | whoami() 返回 N001414 | 把已登记的真实 device_id 填入 `.env` 的 `NAS_DEVICE_ID`(32 字符 hex) |
 | whoami() 超时 | 检查 `NAS_HOST` 是否正确,`ping <nas_ip>` |
-| index_status() 超时 | nas-rag docker 没跑: `cd nas-rag-server && docker compose up -d` |
+| index_status() 超时 | nas-rag docker 没跑: `cd rag-server && docker compose up -d` |

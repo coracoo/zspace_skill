@@ -9,8 +9,8 @@
 返回:汇总报告,用 ✅/❌/⚠️ 标记每项。
 
 用法:
-    python .claude/skills/nas-setup/scripts/check.py
-    python .claude/skills/nas-setup/scripts/check.py --json  # JSON 格式输出
+    python skills/nas-setup/scripts/check.py
+    python skills/nas-setup/scripts/check.py --json  # JSON 格式输出
 """
 import argparse
 import json
@@ -223,7 +223,7 @@ def main():
         else:
             print(f"⚠️  RAG daemon: {rag['url']} 不通")
             print(f"   → smart-tagger 降级到文件名匹配")
-            print(f"   → 启动: cd nas-rag-server && docker compose up -d")
+            print(f"   → 启动: cd rag-server && docker compose up -d")
         print()
 
     # 汇总

@@ -6,7 +6,7 @@
   - 把 import 集中到这里,避免散在脚本各处,也方便以后想抽出来
 
 路径处理:
-  - 这个文件在 .claude/skills/label-manager/lib/nas_client.py
+  - 这个文件在 skills/label-manager/lib/nas_client.py
   - 项目根 = parents[4](lib → label-manager → skills → .claude → 项目根)
 
 env 加载顺序:

@@ -1,6 +1,6 @@
 """NAS 登录加密层(RSA-PKCS1v15 + base64)。
 
-4 处复用:app.py、mcp_server.py、.claude/skills/*/lib/。
+4 处复用:dashboard/app.py、zspace/mcp_server.py、.claude/skills/*/lib/。
 """
 import base64
 import os
