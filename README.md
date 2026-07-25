@@ -2,7 +2,63 @@
 
 89 个 MCP tool + 6 个 skill,让 Claude/Cursor 直接操作极空间 NAS。
 
-## 三层架构
+## 你只需要其中一部分
+
+**这个仓库包含 3 个独立组件,按需取用。不需要 clone 全部:**
+
+| 你是 | 你需要 | 不需要 |
+|---|---|---|
+| **MCP 用户**(想让 Claude Code 操作 NAS) | `mcp_server/` + `nas/` + `.env` | Skill / Dashboard / RAG |
+| **Skill 用户**(想用自动化工作流) | 复制 `.claude/skills/<name>/` 到自己项目 | MCP 源码 / Dashboard / RAG |
+| **RAG 用户**(想要语义搜索) | `nas-rag-server/` docker compose | Skill / Dashboard |
+| **开发者**(想加新 tool/skill) | clone 整个仓库 | — |
+
+## MCP 用户(3 步装上)
+
+```bash
+# 1. 安装 Python 包
+git clone <repo> && cd zspace-mcp-poc
+pip install -e .                    # 或用 ./start.sh deps
+
+# 2. 配置连接
+cp .env.example .env && vi .env     # 填 NAS_HOST/USER/PASSWORD
+
+# 3. 接入 Claude Code
+./start.sh mcp-cfg                  # 打印配置 → 粘到 mcp.json
+# 重启 Claude Code,89 tool 自动出现
+```
+
+首次验证: `python .claude/skills/nas-setup/scripts/check.py`
+
+## Skill 用户(复制到你的项目)
+
+```bash
+# 把需要的 skill 复制到你的 Claude Code 项目
+cp -r .claude/skills/nas-setup ~/your-project/.claude/skills/
+cp -r .claude/skills/smart-tagger ~/your-project/.claude/skills/
+# 前提: 你的项目也已配置 MCP(上一步)
+```
+
+skill 在 `.claude/skills/` 目录下,Claude Code 在该目录启动时自动发现。
+当前 6 个 skill: `nas-setup`(前置) `smart-tagger` `media-organizer` `ios-memo-bak` `label-manager` `file-organizer`
+
+## RAG 用户(Docker 部署到 NAS)
+
+```bash
+cd nas-rag-server
+docker compose up -d                # image: coracoo/cherry:nas_rag
+# 详细: nas-rag-server/README.md
+```
+
+## 所有可选组件
+
+| 组件 | 安装方式 | 用途 |
+|---|---|---|
+| MCP(必须) | `pip install -e .` | 89 tool,Claude Code 连 NAS |
+| Skill | 复制到 `.claude/skills/` | 6 个工作流,Agent 自动触发 |
+| RAG docker | `docker compose up -d` | 语义搜索,部署在 NAS 上 |
+| Dashboard | `./start.sh dashboard` | Web UI,iPhone 备忘录入口 |
+| 百度网盘 | `scripts/netdisk_login.py` | OAuth 登录后再用 28 个 znetdisk tool |
 
 ```
 用户对 Claude Code 说话                    ← 自然语言
