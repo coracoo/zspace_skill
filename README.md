@@ -8,7 +8,7 @@
 
 | 你是 | 你需要 | 不需要 |
 |---|---|---|
-| **MCP 用户**(想让 Claude Code 操作 NAS) | `mcp_server/` + `nas/` + `.env` | Skill / Dashboard / RAG |
+| **MCP 用户**(想让 Claude Code 操作 NAS) | `mcp_server/` + `nas/` + `.env`(**API 内置在 MCP 里**) | Skill / Dashboard / RAG |
 | **Skill 用户**(想用自动化工作流) | 复制 `.claude/skills/<name>/` 到自己项目 | MCP 源码 / Dashboard / RAG |
 | **RAG 用户**(想要语义搜索) | `nas-rag-server/` docker compose | Skill / Dashboard |
 | **开发者**(想加新 tool/skill) | clone 整个仓库 | — |
