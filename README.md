@@ -27,7 +27,7 @@ cp .env.example .env && vi .env   # 填 NAS_HOST/NAS_USER/NAS_PASSWORD
 python .claude/skills/nas-setup/scripts/check.py
 ```
 
-重启 Claude Code,89 个 tool 自动出现。可选 Dashboard: `./start.sh dashboard` → `http://localhost:8000`。
+重启 Claude Code,89 个 tool 自动出现。可选 Dashboard: `./start.sh dashboard` → `http://localhost:15050`。
 
 ## 文件路由
 
