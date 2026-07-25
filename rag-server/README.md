@@ -29,7 +29,7 @@ curl -X POST http://localhost:8000/reindex \
 | `POST` | `/index` | 单条索引(写时增量) `{source_type, source_path, file_content}` |
 | `POST` | `/unindex` | 反索引 `{source_type, source_path}` |
 
-REST 协议详细见 [docs/03-API.md](docs/03-API.md)。
+
 
 ## 配置(环境变量)
 
@@ -58,5 +58,5 @@ rag-server/
 │   └── config.py    配置常量
 ├── Dockerfile + docker-compose.yml
 ├── requirements.txt
-└── docs/03-API.md   REST 协议详细
+
 ```
