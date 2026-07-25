@@ -1,33 +1,90 @@
 # ZSpace NAS MCP
 
-极空间 MCP，让 Agent 直接操作极空间 NAS，包含 MCP、Skill、API 等。
+89 个 MCP tool + 6 个 skill,让 Claude/Cursor 直接操作极空间 NAS。
+
+## 三层架构
 
 ```
-本机 MCP 客户端          mcp_server/ (89 tools)      ZSpace NAS :5055
-(Claude Code / Cursor) ← stdio → tools/{files,         /v2/file/*
-                                  storage,zvideo,       /zvideo/*
-                                  notebook,znetdisk,    /v2/file/notepad/*
-                                  proxy,rag,...}        /znetdisk/* ...
-                                            ↕ HTTP(nas/)
-                                       RAG docker(可选)
-                                       nas-rag-server :8000
+用户对 Claude Code 说话                    ← 自然语言
+        ↓
+┌─ Skill 层(.claude/skills/) ──────────────┐
+│ nas-setup / smart-tagger / media-organizer│  ← LLM 触发词 → 自动加载 SKILL.md
+│ ios-memo-bak / label-manager / file-org  │  ← 组合多个 MCP tool 完成复杂流程
+└──────────────────┬───────────────────────┘
+                   ↓ MCP 协议(stdio,JSON-RPC 2.0)
+┌─ MCP 层(mcp_server/) ────────────────────┐
+│ 89 个 tool(按域分文件)                    │  ← Claude Code mcp.json 配置后自动发现
+│ tools/{files,storage,zvideo,notebook,    │  ← 每个 tool = 1 个 NAS API 端点封装
+│        znetdisk,proxy,rag,...}           │
+└──────────────────┬───────────────────────┘
+                   ↓ HTTP(nas/)
+┌─ 协议层(nas/) ───────────────────────────┐
+│ auth.py  RSA 登录 + device_id 选择        │  ← Python 库,Skill 和 MCP 都复用
+│ client.py NasClient(token 自动续)       │
+└──────────────────┬───────────────────────┘
+                   ↓ HTTP
+┌─ ZSpace NAS ─────────────────────────────┐
+│ :5055 主 API(文件/影视/记事本/网盘...)     │
+│ :8000 RAG docker(语义搜索,可选)           │
+└──────────────────────────────────────────┘
 ```
 
-## 快速开始
+**三者关系**: Skill 是"做什么"(工作流) → MCP 是"怎么做"(单步操作) → nas/ 是"怎么连"(协议)。新用户只需配 MCP,skill 自动生效。
+
+## 必须 & 可选
+
+| 组件 | 必须? | 说明 |
+|---|---|---|
+| `.env` 配置 | ✅ 必须 | NAS 连接信息(NAS_HOST/USER/PASSWORD) |
+| `mcp_server.py` | ✅ 必须 | MCP stdio 服务,Claude Code 连它 |
+| `nas-setup` skill | ✅ 推荐 | 首次跑,验证 env + 登录 + 可选组件 |
+| `nas-rag-server/` docker | 可选 | RAG 语义搜索。不装也能用 86 个 tool,只是 semantic_search 不可用 |
+| `app.py` Dashboard | 可选 | Web 管理界面(iPhone 备忘录入口等) |
+| 百度网盘 OAuth | 可选 | 28 个 znetdisk tool 需要先登录 |
+
+## 安装
 
 ```bash
 git clone <repo>
-cp .env.example .env && vi .env   # 填 NAS_HOST/NAS_USER/NAS_PASSWORD
-./start.sh deps                   # pip install
-./start.sh mcp-cfg                # 打印 mcp.json 配置,粘到 Claude Code
-```
+cd zspace-mcp-poc
 
-重启 Claude Code。首次使用先跑环境检查:
-```
+# 1. 配置连接(必须)
+cp .env.example .env
+vi .env   # 填 NAS_HOST / NAS_USER / NAS_PASSWORD
+
+# 2. 装 Python 依赖(必须)
+./start.sh deps
+
+# 3. 接入 Claude Code(必须)
+./start.sh mcp-cfg   # 打印配置片段,粘到 ~/.config/claude-code/mcp.json
+# 重启 Claude Code → 89 个 tool 自动出现
+
+# 4. 首次验证
 python .claude/skills/nas-setup/scripts/check.py
+# 输出 ✅✅✅ 即可
+
+# 5. (可选) RAG 语义搜索
+cd nas-rag-server && docker compose up -d    # 需要 NAS docker daemon
+
+# 6. (可选) Web Dashboard
+./start.sh dashboard   # http://localhost:15050
 ```
 
-重启 Claude Code,89 个 tool 自动出现。可选 Dashboard: `./start.sh dashboard` → `http://localhost:15050`。
+## 使用示例
+
+```
+用户在 Claude Code 里说: "给一年级教材打《一年级》标签"
+
+Agent 内部执行流程:
+  nas-setup skill 自动加载 → check.py 验证 .env/登录/RAG
+  smart-tagger skill 自动加载(触发词"给 XX 打标签")
+    → semantic_search("一年级 教材") → MCP tool → POST NAS RAG daemon
+    → 返回 3 个匹配 {path, snippet, distance}
+    → Agent 过滤 distance < 1.0 的
+    → save_file_label("一年级", "path1,path2") → MCP tool → NAS API
+    → MCP 客户端弹 UI 让用户批准
+    → ✅ 完成
+```
 
 ## 文件路由
 
