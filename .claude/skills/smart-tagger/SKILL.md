@@ -1,7 +1,7 @@
 ---
 name: smart-tagger
-description: 自然语言搜 NAS 文件内容 → 批量打标签。Agent 调 RAG 语义检索(`semantic_search`)拿匹配文件,再用 MCP `save_file_label` 批量打标,用户弹 UI 批准。
-  触发词:给 XX 内容的文件打 XX 标签、找所有 XX 给它们打标、给一年级的文件打《一年级》标签、按内容找文件打标、智能打标、语义打标、给所有 XX 内容的文件批量打标。
+description: Use when 用户想按文件内容(而非文件名)批量打标签 —— "给一年级课本打一年级标签"、"给所有 docker 相关的文件打标签"、"找所有 XX 内容的文件打标"。RAG 语义检索到匹配文件后,Agent 调 MCP save_file_label 批量打标。
+  触发词:给 XX 内容的文件打 XX 标签、找所有 XX 给它们打标、给一年级的文件打《一年级》标签、给课本打标签、按内容找文件打标、智能打标、语义打标、给所有 XX 内容的文件批量打标、给一年级教材打标签。
   不适用:按文件名/扩展名打标(用 label-manager)、按目录递归打标(用 label-manager 扫描)、单文件打标(直接 MCP save_file_label)、删除标签(用 label-manager)。
 ---
 
@@ -9,16 +9,17 @@ description: 自然语言搜 NAS 文件内容 → 批量打标签。Agent 调 RA
 
 ## 概述
 
-NAS 里 1000+ 文件,用户用自然语言描述要找什么(比如"一年级的教材"),Agent 调 **RAG 语义检索**找到匹配文件,然后**批量打标签**。
+NAS 里 1000+ 文件,用户用自然语言描述要找什么(比如"一年级的课本"),Agent 调 **RAG 语义检索**(NAS docker daemon,bge-small-zh-v1.5,391 chunks)找到匹配文件,然后**批量打标签**。
 
-这是真正盘活 NAS 文件管理的关键工作流 — 文件不再靠人工整理,而是 Agent 根据内容自动归类。
+**RAG daemon 已上线**(`192.168.0.135:8000`,docker container nas-rag)。无需降级,直接搜。
 
 **关键能力依赖**:
-- ✅ `semantic_search(query, scope, top_k)` MCP tool(RAG)
+- ✅ `semantic_search(query, scope, top_k)` MCP tool → POST NAS daemon /search
 - ✅ `save_file_label(label_names, paths)` MCP tool(批量打标)
 - ✅ `list_file_labels()` MCP tool(确认标签名)
+- ✅ `reindex(scope, full)` MCP tool(调 NAS daemon 重建索引)
 
-**RAG 不可用时**:降级到 `list_files` + 文件名/扩展名匹配(走 label-manager 的 scan 命令)。
+2026-07-25 已实测验证:一年级教材 5 个 PDF + 二年级教材 4 个 PDF 打标成功。
 
 ---
 
@@ -60,16 +61,16 @@ NAS 里 1000+ 文件,用户用自然语言描述要找什么(比如"一年级的
 
 6. **报告**:返回"N 个文件已打《一年级》标签" + 示例路径前 5 个
 
-### 场景 2:RAG daemon 没跑 / 不可用
+### 场景 2:文件太大没进 RAG 索引(降级)
 
-**用户说**:"给所有 .pdf 的教材打 教材 标签"
+**用户说**:"为什么科学一年级下册没打上标签"
 
-**降级策略**(走 label-manager scan + 文件名匹配):
-1. exec `python .claude/skills/label-manager/label_manager.py scan --root /sata14/my/data/课程资料/ --ext pdf --max-depth 5`
-2. 读 scan 结果,Agent 过滤掉非教材(看文件名判断)
-3. 调 `save_file_label("教材", "<paths>")`
+**原因**:文件 > `RAG_MAX_FILE_SIZE_KB`(默认 100MB)。科学 PDF 205MB,reindex 时被跳过。
+**检查**:`index_status()` 看 total_chunks — 如果目标文件不在"已索引"范围内。
 
-**为什么降级**:RAG daemon 还在 Phase 2(nas-rag-server/),没真上线。Phase 5.1 完成前 smart-tagger 默认走降级路径。
+**处理**:
+1. 调大 `RAG_MAX_FILE_SIZE_KB`(如 256000),重启容器 + reindex
+2. 或者降级:**文件名匹配**。直接用 `list_files` 列目录,按文件名含"科学一年级"找到,手动 `save_file_label`
 
 ### 场景 3:多标签场景
 
@@ -165,10 +166,11 @@ NAS 里 1000+ 文件,用户用自然语言描述要找什么(比如"一年级的
 
 ## 已知 gap
 
-- **RAG daemon 未上线**(Phase 2 待做) — 当前 smart-tagger 自动降级到 label-manager scan + 文件名匹配
-- **RAG 召回率受文件类型限制** — 白名单 `.py/.md/.txt/.json/.yaml/.conf` 等纯文本;PDF/Word/图片不在
-- **scope=notebooks 还没接** — Phase 6 才做笔记的 RAG
+- **大文件漏标**:文件 > `RAG_MAX_FILE_SIZE_KB`(默认 100MB)不会进索引,搜不到 → 降级走文件名匹配打标
+- **PDF 文本提取不稳**:pypdf 提取扫描版 PDF 返回空(图片型),搜不到内容;文字版 OK
+- **scope=notebooks 还没接** — NAS daemon 当前只索引 files,笔记本 RAG Phase 6 待做
 - **标签覆盖风险** — save_file_label 是覆盖式,建议先 file_info 看现有标签
+- **文件路径格式** — RAG 返回 `/tmp/zfsv3/...` 路径(NAS zfs 内部路径),`save_file_label` 接受这个格式(已验证 code=200)
 
 ---
 

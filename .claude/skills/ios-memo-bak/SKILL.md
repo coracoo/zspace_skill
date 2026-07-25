@@ -1,9 +1,8 @@
 ---
 name: ios-memo-bak
-description: 把 iPhone 备忘录通过 iOS「快捷指令」自动备份到 NAS 独立记事本(location=2)。
-  触发词:iPhone 备忘录同步、ios 备忘录 bak、备忘录备份到 NAS、备忘 → NAS、iPhone notepad sync、
-  ios 备忘录、备忘录同步、iphone shortcut 备份、iPhone 推笔记。
-  不适用:不是直接写 NAS 的 skill — 实际写由 iPhone Shortcut 发起;此 skill 只设置基础设施 + 给配置步骤。
+description: Use when 用户想把 iPhone 备忘录自动备份到 NAS 记事本 — "帮我设置 iPhone 备忘录同步"、"重新告诉我一下怎么配"、"换一个新的备份密钥"、"我同事也要用这个功能"。
+  触发词:iPhone 备忘录同步、ios 备忘录 bak、备忘录备份到 NAS、备忘 → NAS、iPhone notepad sync、ios 备忘录、备忘录同步、iphone shortcut 备份、iPhone 推笔记、给我配 iPhone 备份、帮我把备忘录同步到 NAS。
+  不适用:不是直接写 NAS 的 skill — 实际写由 iPhone Shortcut 发起;此 skill 只设置基础设施(生成密钥 + 重启 dashboard + 给配置步骤)。
 ---
 
 # iOS Memo Backup — iPhone 备忘录 → NAS 记事本 同步
