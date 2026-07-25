@@ -7,7 +7,7 @@ import subprocess
 import time
 from typing import Any, Dict
 
-NAS_SSH_HOST = "192.168.0.135"
+NAS_SSH_HOST = ""
 NAS_SSH_PORT = "57922"
 NAS_SSH_USER = "<your_phone_number>"
 

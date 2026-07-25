@@ -976,8 +976,6 @@ NAS 上 `/dev/shm/*.socket` 显示以下服务在跑(全部可通过 openresty �
 4. **path 必须含 `/my/` 子目录**:`/sata14/` 和 `/sata14/my/` 都报 N001411。
 5. **POST 默认 form-urlencoded**:不是 JSON,pcweb 默认行为,要照抄。
 6. **所有请求都带公共 query params**:`plat` + `version` + `device_id` + `device` + `_l`。
-7. **Docker API 明文暴露在 LAN**:`192.168.0.135:2375`,任何同网段客户端都能拿 root(安全隐患,跟 MCP 无关但建议关)。
-
 ---
 
 ## 12. 模拟客户端最小代码片段
@@ -996,7 +994,7 @@ def enc(s: str) -> str:
 
 # 1) 登录
 c = httpx.Client(timeout=10)
-r = c.post("http://192.168.0.135:5055/auth/login", data={
+r = c.post("http://<nas_ip>:5055/auth/login", data={
     "username": enc("<your_phone_number>"),
     "password": enc(PASSWORD),
     "plat": "web", "device": "linux", "device_id": DEVICE_ID,
@@ -1007,7 +1005,7 @@ c.cookies.update({"token": token, "username": "<your_phone_number>",
 
 # 2) 公共 query 追加(每个请求都加)
 def url(path):
-    return f"http://192.168.0.135:5055{path}?plat=web&version=2.3.2026062201&device_id={DEVICE_ID}&device=linux&_l=zh-CN"
+    return f"http://<nas_ip>:5055{path}?plat=web&version=2.3.2026062201&device_id={DEVICE_ID}&device=linux&_l=zh-CN"
 
 # 3) 列文件
 r = c.post(url("/v2/file/list"), data={

@@ -1,6 +1,6 @@
 """RAG tool(语义搜索 / 重建索引 / 索引状态)— HTTP 客户端调 NAS daemon。
 
-NAS daemon 地址从 env `NAS_RAG_URL` 读,默认 http://192.168.0.135:8000。
+NAS daemon 地址从 env `NAS_RAG_URL` 读,默认 http://<nas_ip>:8000。
 
 路径映射:NAS daemon 返回的容器内路径(/nas_data/xxx)需要映射回
 NAS 文件 API 能识别的路径。映射规则从 env `NAS_RAG_PATH_MAP` 读,
@@ -22,7 +22,7 @@ from mcp_server.main import mcp
 log = logging.getLogger("zspace-mcp")
 
 # NAS RAG daemon 地址
-NAS_RAG_URL = os.environ.get("NAS_RAG_URL", "http://192.168.0.135:8000").rstrip("/")
+NAS_RAG_URL = os.environ.get("NAS_RAG_URL", "http://<nas_ip>:8000").rstrip("/")
 
 # 路径映射:容器路径→NAS API 路径
 # 格式:"/nas_data/→/sata14/my/data/课程资料/课本/;/nas_root2/→/sata14/my/data/other/"

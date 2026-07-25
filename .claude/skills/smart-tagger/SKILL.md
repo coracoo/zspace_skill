@@ -11,7 +11,7 @@ description: Use when 用户想按文件内容(而非文件名)批量打标签 �
 
 NAS 里 1000+ 文件,用户用自然语言描述要找什么(比如"一年级的课本"),Agent 调 **RAG 语义检索**(NAS docker daemon,bge-small-zh-v1.5,391 chunks)找到匹配文件,然后**批量打标签**。
 
-**RAG daemon 已上线**(`192.168.0.135:8000`,docker container nas-rag)。无需降级,直接搜。
+**RAG daemon 已上线**(`<nas_ip>:8000`,docker container nas-rag)。无需降级,直接搜。
 
 **关键能力依赖**:
 - ✅ `semantic_search(query, scope, top_k)` MCP tool → POST NAS daemon /search

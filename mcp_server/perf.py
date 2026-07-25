@@ -16,7 +16,7 @@ from typing import Any
 log = logging.getLogger("zspace-mcp")
 
 # SSH 性能快照依赖的环境变量(读 env,默认与原 mcp_server.py 一致)
-NAS_HOST = os.environ.get("NAS_HOST", "192.168.0.135")
+NAS_HOST = os.environ.get("NAS_HOST", "")
 NAS_USER = os.environ.get("NAS_USER", "")
 NAS_SSH_PORT = os.environ.get("NAS_SSH_PORT", "57922")
 KEY_SSH = os.environ.get("KEY_SSH", "")

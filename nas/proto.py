@@ -1,7 +1,7 @@
 """NAS HTTP 协议层:base URL + 公共 query 参数(axaxios 拦截器追加)。"""
 import os
 
-NAS_BASE = os.environ.get("NAS_BASE", "http://192.168.0.135:5055")
+NAS_BASE = os.environ.get("NAS_BASE", "")
 
 
 def common_query(device_id: str) -> str:

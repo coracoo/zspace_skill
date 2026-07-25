@@ -19,7 +19,7 @@
       "command": "/home/cc/workspace/zspace-mcp-poc/.venv/bin/python",
       "args": ["/home/cc/workspace/zspace-mcp-poc/mcp_server.py"],
       "env": {
-        "NAS_HOST": "192.168.0.135",
+        "NAS_HOST": "<nas_ip>",
         "NAS_USER": "<your_phone_number>",
         "NAS_PASSWORD": "你的密码",
         "KEY_SSH": "你的密码",
@@ -36,7 +36,7 @@
 
 | 变量 | 必填 | 用途 |
 |------|------|------|
-| `NAS_HOST` | ✅ | NAS IP(默认 192.168.0.135) |
+| `NAS_HOST` | ✅ | NAS IP(默认 <nas_ip>) |
 | `NAS_USER` | ✅ | 用户名(手机号) |
 | `NAS_PASSWORD` | ✅ | 密码 |
 | `NAS_DEVICE_ID` | 可选 | 32 字符,默认借用 Firefox/151 的 |

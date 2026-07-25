@@ -21,7 +21,7 @@ body 字段标注:
 - 【已实测】— 字段名/类型确认
 - 【待实测】— 推测字段,登录后跑一次真实请求才能确认
 
-源端点路径:https://192.168.0.135:5055/znetdisk/<group>/<action>
+源端点路径:https://<nas_ip>:5055/znetdisk/<group>/<action>
 所有 POST + form-urlencoded。
 """
 from mcp_server import main as _main
