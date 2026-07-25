@@ -433,7 +433,7 @@ async def notepad_pwa():
     """iPhone Safari 上的 PWA 记事本推送表单(不需要装 Shortcuts,不需要密钥)。
 
     用法:
-      1. iPhone Safari 打开 http://192.168.0.123:15050/n
+      1. iPhone Safari 打开 http://<nas_ip>:15050/n
       2. 分享 → 添加到主屏幕,以后桌面图标直接进(全屏,跟 app 一样)
       3. 填 title + body,点推送(开放模式,服务端自己抽 title 去重)
     """

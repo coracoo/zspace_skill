@@ -30,3 +30,4 @@ nas-rag-server/fastembed-cache/
 .superpowers/
 docs/superpowers/
 docs/articles/
+nas-rag-server/docs/0[0-4]*

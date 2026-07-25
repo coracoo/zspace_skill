@@ -11,9 +11,9 @@
   ├─ 从输入获取多信息文本
   ├─ 用多信息文本制作 HTML  → Cocoa HTML Writer 风格完整 HTML
   └─ 获取 URL 内容 POST
-       ↓ HTTP POST  http://192.168.0.123:8000/shortcut/notepad
+       ↓ HTTP POST  http://<nas_ip>:15050/shortcut/notepad
        ↓ Body:      application/x-www-form-urlencoded,值是完整 HTML 字符串
-[宿主机 app.py :8000]
+[宿主机 app.py :15050]
   ↓ 1. 检测 Cocoa HTML("Cocoa HTML Writer" / ".AppleSystemUIFont")
   ↓    _cocoa_html_to_clean() 结构化解析 + 渲染成干净 HTML
   │    span class s1/s2/s3/s4 → h1/h2/h3/p
@@ -34,7 +34,7 @@
   ↓ 极空间 app 详情正确渲染(标题样式 + 表格带边框 + emoji 彩色字体)
 ```
 
-iPhone Shortcuts 不能直接调 NAS API(NAS 用 RSA 加密 + cookie session,Shortcuts 撑不住),所以走 dashboard(FastAPI 已经在 192.168.0.123:8000 上跑)做代理。
+iPhone Shortcuts 不能直接调 NAS API(NAS 用 RSA 加密 + cookie session,Shortcuts 撑不住),所以走 dashboard(FastAPI 已经在 <nas_ip>:15050 上跑)做代理。
 
 **设计原则**:iPhone 只负责推富文本 HTML,**服务端自动剥样式 / 转干净 HTML / 抽 title / 查重 / 落盘**。iOS 端 0 密钥 0 配置。
 
@@ -61,7 +61,7 @@ nohup .venv/bin/python -m uvicorn app:app --host 0.0.0.0 --port 8000 &
 在 LAN 上任何机器(包括 iPhone 在同一 WiFi 后):
 
 ```bash
-curl -X POST http://192.168.0.123:8000/shortcut/notepad \
+curl -X POST http://<nas_ip>:15050/shortcut/notepad \
   -H "Content-Type: text/plain; charset=utf-8" \
   --data "smoke test from laptop
 hello from iPhone"
@@ -110,7 +110,7 @@ iPhone **快捷指令** app:
 
 8. 添加操作 → 搜 **`URL`** → 选 **`获取 URL 内容`**(地球图标)
 9. 配置:
-   - **URL**: `http://192.168.0.123:8000/shortcut/notepad`(公网访问换成你映射的域名)
+   - **URL**: `http://<nas_ip>:15050/shortcut/notepad`(公网访问换成你映射的域名)
    - **方法**: `POST`
    - **请求头(Headers)**: 不填(开放模式不需要密钥)
    - **请求正文(Request Body)**: 类型选 **文本** → 在文本框里点一下,键盘上方变量栏出现 **`多信息文本`**(上一个动作的 HTML 输出)→ 选它
@@ -251,7 +251,7 @@ iOS Shortcut 走 HTML 路径时,`<h1>` 已在 body 里。服务端会从 `<h1>` 
    2. **用多信息文本制作 HTML**(`Make HTML from Rich Text`)
       - 输入:接上一步的多信息文本
    3. **获取 URL 内容**(`Get Contents of URL`)
-      - URL: `http://192.168.0.123:8000/shortcut/notepad`
+      - URL: `http://<nas_ip>:15050/shortcut/notepad`
       - 方法: `POST`
       - 请求头:留空(开放模式)
       - 请求正文 → 类型 **文本** → 在变量栏选上一步的 **HTML 输出**
