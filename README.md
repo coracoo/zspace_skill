@@ -126,6 +126,53 @@ zspace-mcp-poc/
 | `app.py` → `app/` | Web Dashboard | `./start.sh dashboard` | 8000 |
 | `nas-rag-server/` | RAG 语义搜索 docker | `docker compose up -d` | 8000(容器) |
 
+## MCP 协议 Demo(stdio)
+
+MCP 是 JSON-RPC 2.0 over stdin/stdout。下面演示完整握手 + 调 tool:
+
+```python
+import asyncio, json, sys
+
+async def mcp_client():
+    # 启动 mcp_server 作为子进程(stdio)
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable, "mcp_server.py",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        limit=4 * 1024 * 1024,  # 必须,大响应会超 64KB 默认缓冲
+    )
+    
+    async def send(msg):
+        proc.stdin.write((json.dumps(msg) + "\n").encode())
+        await proc.stdin.drain()
+    
+    async def recv():
+        return json.loads(await proc.stdout.readline())
+    
+    # 1. 握手(initialize)
+    await send({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                "params": {"protocolVersion": "2024-11-05",
+                           "capabilities": {}, "clientInfo": {"name": "demo", "version": "1"}}})
+    init = await recv()
+    print(f"server: {init['result']['serverInfo']}")  # {'name': 'zspace-nas', 'version': '1.28.0'}
+    
+    # 2. 列出所有 tool
+    await send({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
+    tools = await recv()
+    print(f"tools: {len(tools['result']['tools'])}")   # 89
+    
+    # 3. 调一个 tool(list_files)
+    await send({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                "params": {"name": "list_files",
+                           "arguments": {"path": "/sata14/my/data/"}}})
+    result = await recv()
+    print(f"files: {json.dumps(result['result'], ensure_ascii=False)[:200]}")
+
+asyncio.run(mcp_client())
+```
+
+**关键**:`limit=4*1024*1024` 不能省。默认 64KB 缓冲区会在 `list_songs` 等大响应时卡死。
+
 包依赖: `app/` → `nas/` → NAS HTTP,`mcp_server/` → `nas/` + `rag/`(可选) → NAS HTTP + NAS Docker。
 │       ├── files.py              # 文件类 tool(12 个)
 │       ├── storage.py            # 池/硬件/SMART/监控(8 个)
