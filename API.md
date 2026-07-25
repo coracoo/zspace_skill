@@ -1,6 +1,5 @@
 # ZSpace Z4Pro NAS API 速查
 
-> 适用型号:Z4Pro(固件 `V1.0.0430455` / `Z043_SERVICE`)
 > 入口:`http://<nas-ip>:5055`(HTTP)或 `:5056`(HTTPS)
 > 本文档基于对 pcweb JS bundle + openresty 配置 + 实测反推整理,字段名以实测为准。
 
@@ -46,17 +45,9 @@ Content-Type: application/x-www-form-urlencoded
 | `device` | 任意,如 `linux` |
 | `device_id` | **严格 32 字符**(可用 md5 hex) |
 
-**公钥**(`NAS_PUB_KEY_FILE = /zspace/system/private/pubkey`,base64 解开后是 2048-bit PEM):
+**公钥**(从 NAS 公开端点 `/zspace/system/private/pubkey` 获取,base64 解码后是 2048-bit PEM):
 ```
------BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtrDHnaRmRaMAhZC2CmRV
-CPO3ekJRo5ELX3Jjtr9P8MoWHSQbsAE5G+VTkKWhTyMQQMR0erKabn82fOZgyOO4
-F+CVRSJH0TRD854IeQyFD2iZg2W2J/BzYNYC8EmBjlRhs8oS5LBc0WUN7bP4et0s
-Z2LGSXbt6TetSndeV9LP8+zaKka+xvV/9aohg5rc5Ha5ka7BfTliBOyzLPR+UTKe
-mx9ysWrXedlYGUjXkDRyp4xfj98bOx44EmswJh+YHYNSINyCZ4nMsat98aWOPEDl
-jsflEvNt6vXFDqrziOjAPW0S/wvyvrFCZxlb+IxJMrtNH7M61spGfobE8sjNU+MC
-wwIDAQAB
------END PUBLIC KEY-----
+<RSA_PUBKEY_PEM — 从 NAS /zspace/system/private/pubkey 获取>
 ```
 
 ⚠️ **易踩坑**:`/zspace/system/private/server_pubkey` 是另一个 1024-bit 公钥(用于 `sign2string`/注册流程),登录用的是 `pubkey` 不是它。
@@ -76,7 +67,7 @@ wwIDAQAB
     "nickname": "cherry",
     "is_master": 1,
     "actived": 1,
-    "token": "108MSQlMTc1M...",
+    "token": "<jwt_token>",
     "sp_perms": [{"pool": "sata14", "perm": "rw", "quota": 0}, {"pool": "nvme19", "perm": "rw"}],
     ...
   }

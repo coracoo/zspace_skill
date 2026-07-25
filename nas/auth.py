@@ -8,6 +8,8 @@ import os
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
+# 注:这是 NAS 公开端点 /zspace/system/private/pubkey 返回的 RSA 公钥,
+# 用于登录加密,非私钥/密码。更换 NAS 固件版本时可能需要更新。
 NAS_PUBKEY_PEM = b"""-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtrDHnaRmRaMAhZC2CmRV
 CPO3ekJRo5ELX3Jjtr9P8MoWHSQbsAE5G+VTkKWhTyMQQMR0erKabn82fOZgyOO4

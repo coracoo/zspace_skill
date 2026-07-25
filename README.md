@@ -1,6 +1,6 @@
 # ZSpace NAS MCP
 
-89 个 MCP tool + 5 个 skill,让 Claude/Cursor 直接操作极空间 NAS。
+极空间 MCP，让 Agent 直接操作极空间 NAS，包含 MCP、Skill、API 等。
 
 ```
 本机 MCP 客户端          mcp_server/ (89 tools)      ZSpace NAS :5055
@@ -36,32 +36,32 @@ zspace-mcp-poc/
 ├── mcp_server/           MCP Server
 │   ├── main.py           FastMCP 入口
 │   └── tools/            按域分文件
-│       ├── files.py      文件读写 + 标签 (12 tool)
-│       ├── storage.py    存储池/硬件/SMART/监控 (8)
-│       ├── zvideo.py     极影视 (8)
-│       ├── notebook.py   记事本 (17)
-│       ├── znetdisk.py   百度网盘 (28)
-│       ├── proxy.py      远程访问 (4)
-│       ├── shares.py     共享/下载 (7)
-│       ├── media.py      音乐/相册 (3)
-│       └── rag.py        RAG 语义搜索 (3)
+│       ├── files.py      文件读写 + 标签
+│       ├── storage.py    存储池/硬件/SMART/监控
+│       ├── zvideo.py     极影视
+│       ├── notebook.py   记事 (17)
+│       ├── znetdisk.py   网盘
+│       ├── proxy.py      远程访问
+│       ├── shares.py     共享/下载
+│       ├── media.py      音乐/相册
+│       └── rag.py        RAG 语义搜索
 │
 ├── app/                  Web Dashboard
 │   ├── main.py           FastAPI + Session
 │   └── routes/
 │       ├── shortcut.py   iPhone 备忘录 → NAS 入口
-│       ├── dashboard.py  4 个监控 tab
+│       ├── dashboard.py  WebUI
 │       └── files.py,notebook.py,zvideo.py 文件/记事本/影视 CRUD
 │
-├── nas-rag-server/       RAG docker 服务(独立部署)
+├── nas-rag-server/       RAG docker 服务(在 NAS 独立部署，作为文件索引)
 │   ├── app/server.py     /search /reindex /index /unindex /status
 │   ├── Dockerfile + docker-compose.yml
 │   └── docs/03-API.md    REST 协议
 │
 ├── .claude/skills/       5 个自动化 skill
-│   ├── ios-memo-bak/     iPhone 备忘录 → NAS 记事本
+│   ├── ios-memo-bak/     iPhone 备忘录 → 极空间记事本
 │   ├── media-organizer/  极影视分类审计
-│   ├── smart-tagger/     RAG 搜 → 批量打标
+│   ├── smart-tagger/     RAG 搜索基础上的批量文件标签管理
 │   ├── label-manager/    标签管理
 │   └── file-organizer/   文件库诊断
 │
