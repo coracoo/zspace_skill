@@ -1,7 +1,7 @@
 # ZSpace NAS API 速查
 
-> 入口:`http://<nas-ip>:5055`(HTTP)或 `:5056`(HTTPS)
-> 本文档基于对 pcweb JS bundle + openresty 配置 + 实测反推整理,字段名以实测为准。
+> 入口:`http://<nas_ip>:5055`(HTTP)或 `:5056`(HTTPS)
+> 字段名以实测为准。
 
 ---
 
