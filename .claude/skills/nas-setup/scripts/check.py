@@ -70,7 +70,7 @@ def check_env() -> dict:
         if not is_empty and var in ("NAS_PASSWORD", "KEY_SSH"):
             masked = "***(" + str(len(val)) + "位)"
         elif not is_empty:
-            masked = val[:8] + "..." if len(val) > 8 else val
+            masked = val[:3] + "..." + val[-2:] if len(val) > 5 else val[:3] + "..."
         results["vars"][var] = {
             "value": masked,
             "ok": not is_empty,
