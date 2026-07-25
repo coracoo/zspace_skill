@@ -1,7 +1,7 @@
 """百度网盘 MCP tool(28 个 /znetdisk/* 端点封装)
 
 ⚠️ 前置:必须先在 NAS 登录百度网盘账号。两种方式:
-1. 跑 `scripts/netdisk_login.py` 走 OAuth CLI
+1. 跑 `zspace/scripts/netdisk_login.py` 走 OAuth CLI
 2. NAS pcweb UI → 应用 → 网盘 → 添加百度网盘
 
 未登录时所有 tool 返回 code="N001013",看到这个就引导用户登录。

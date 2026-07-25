@@ -15,7 +15,7 @@
 - 阿里云盘不走这个 CLI(其 OAuth 入口未破,只能 NAS UI 登录)
 
 用法:
-    .venv/bin/python scripts/netdisk_login.py
+    .venv/bin/python zspace/scripts/netdisk_login.py
 """
 import argparse
 import asyncio
