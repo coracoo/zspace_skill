@@ -23,12 +23,12 @@ logs/
 # RAG data & cache
 .cache/zspace-rag/
 .cache/
-nas-rag-server/data/
-nas-rag-server/fastembed-cache/
+rag-server/data/
+rag-server/fastembed-cache/
 
 # Superpowers
 .superpowers/
 docs/superpowers/
 docs/articles/
-nas-rag-server/docs/0[0-4]*
+
 tools
