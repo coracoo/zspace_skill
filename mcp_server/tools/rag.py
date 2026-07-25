@@ -34,8 +34,7 @@ if _map_env:
         if len(parts) == 2:
             _PATH_MAP.append((parts[0].strip(), parts[1].strip()))
 if not _PATH_MAP:
-    # 默认:映射到 docker-compose 当前挂载的路径
-    _PATH_MAP = [("/nas_data/", "/tmp/zfsv3/sata14/<your_phone_number>/data/课程资料/课本/")]
+    pass  # 用户通过 .env 的 NAS_RAG_PATH_MAP 自行配置
 
 log.info("RAG daemon at %s, path_map=%s", NAS_RAG_URL, _PATH_MAP)
 
