@@ -18,6 +18,7 @@ Thumbs.db
 
 # Logs
 logs/
+dashboard/logs/
 *.log
 
 # RAG data & cache
@@ -30,5 +31,3 @@ rag-server/fastembed-cache/
 .superpowers/
 docs/superpowers/
 docs/articles/
-
-tools
