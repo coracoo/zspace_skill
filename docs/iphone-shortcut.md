@@ -13,7 +13,7 @@
   └─ 获取 URL 内容 POST
        ↓ HTTP POST  http://<nas_ip>:15050/shortcut/notepad
        ↓ Body:      application/x-www-form-urlencoded,值是完整 HTML 字符串
-[宿主机 dashboard/app.py :15050]
+[宿主机 dashboard/app/__main__.py :15050]
   ↓ 1. 检测 Cocoa HTML("Cocoa HTML Writer" / ".AppleSystemUIFont")
   ↓    _cocoa_html_to_clean() 结构化解析 + 渲染成干净 HTML
   │    span class s1/s2/s3/s4 → h1/h2/h3/p

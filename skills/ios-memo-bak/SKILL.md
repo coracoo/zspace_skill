@@ -35,7 +35,7 @@ description: Use when 用户想把 iPhone 备忘录自动备份到 NAS 记事本
 ### 场景 2:已配置(用户触发词:"再告诉我一下 iPhone Shortcut 怎么配"或"我同事也要用")
 
 1. 读 `.env` 拿现有 key(直接显示,完整密钥不遮蔽 —— 因为 iPhone Shortcut 端需要)
-2. 拿端口(从 `dashboard/app/main.py` uvicorn 启动行读,默认 8000)
+2. 拿端口(从 `dashboard/app/__main__.py` uvicorn 启动行读,默认 15050)
 3. 给 iPhone Shortcut 配置步骤
 
 ### 场景 3:重新生成 key(用户触发词:"换一个新密钥")
@@ -52,7 +52,7 @@ description: Use when 用户想把 iPhone 备忘录自动备份到 NAS 记事本
 ## 关键约束(必读)
 
 1. **密钥必须从 .env 读,不能猜** — `.env` 是 SOT
-2. **端口必须从 dashboard/app/main.py 读** — 默认 8000,但用户可能改了
+2. **端口必须从 dashboard/app/__main__.py 读** — 默认 15050,但用户可能改了
 3. **NAS_LAN_IP 从 .env NAS_HOST 读** — 占位符(极空间 IP)要替换
 4. **重启 dashboard 必须用 `./start.sh`** — 它会 `source .env`,手动 `uvicorn` 启动读不到 env
 5. **密钥直接完整显示给用户** — 不遮蔽(因为配置 Shortcut 必须要完整密钥)
