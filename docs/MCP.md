@@ -16,9 +16,9 @@
 {
   "mcpServers": {
     "zspace-nas": {
-      "command": "/home/cc/workspace/zspace-mcp-poc/.venv/bin/python",
+      "command": "/path/to/zspace-mcp-poc/.venv/bin/python",
       "args": ["-m", "zspace.mcp_server"],
-      "cwd": "/home/cc/workspace/zspace-mcp-poc",
+      "cwd": "/path/to/zspace-mcp-poc",
       "env": {
         "NAS_HOST": "<nas_ip>",
         "NAS_USER": "<your_phone_number>",
@@ -44,11 +44,11 @@
 | `KEY_SSH` | 可选 | `perf_snapshot` tool 需要(SSH 到 NAS 读 /proc) |
 | `NAS_SSH_PORT` | 可选 | SSH 端口,默认 57922 |
 
-### 1.3 验证启动
+### 1.3 验证
 
 ```bash
-NAS_USER=<your_phone_number> NAS_PASSWORD=... KEY_SSH=... .venv/bin/python -m zspace.mcp_server
-# 看到日志 "MCP server 'zspace-nas' starting, 89 tools registered" 即成功
+NAS_HOST=... NAS_USER=... NAS_PASSWORD=... .venv/bin/python -m zspace.mcp_server
+# 看到日志 "89 tools registered" 即成功
 ```
 
 ---
@@ -828,7 +828,7 @@ location=1 是保险箱备忘录,需要先开保险箱 — 这套 tool 全部用
 
 ### 6.5 ✅ 已部署:iPhone Shortcut 推送入口(非 MCP,走 dashboard)
 
-**端点**:`POST /shortcut/notepad`(在 dashboard `app/routes/shortcut.py` 里,不是 MCP tool)
+**端点**:`POST /shortcut/notepad`(在 `dashboard/app/routes/shortcut.py` 里,不是 MCP tool)
 **配套文档**:`docs/iphone-shortcut.md`
 **用途**:iPhone 备忘录 → NAS 记事本 同步(单向)
 
@@ -896,10 +896,10 @@ NAS 跑的是 **N150 CPU**(低功耗)+ 96 个服务。**并发请求会卡死宿
 
 ## 九、相关文档
 
-- **`API.md`** — NAS 全端点速查(907 行)+ 字段对照 + 易踩坑(目前只覆盖到 §6.3.2)
-- **`README.md`** — Dashboard + MCP 总览 + 配置示例
-- **`app/`** — Dashboard FastAPI 实现(`app/routes/notebook.py` 有 24 个 `/action/notebook-*` 写测试桩)
-- **`templates/tab_*.html`** — Dashboard 5 个 tab(总览/存储池/极影视/记事本/写测试)
+- **`API.md`** — NAS 全端点速查
+- **`README.md`** — MCP + Dashboard 总览 + 配置示例
+- **`dashboard/`** — Web Dashboard(FastAPI + Jinja2 模板),入口 `python -m dashboard.app`
+- **`zspace/mcp_server/`** — MCP 实现(按域拆分成 `tools/*.py`)
 - **`mcp_server/`** — 本文档对应的 MCP 实现(按域拆分成 `tools/*.py`)
 
 ---

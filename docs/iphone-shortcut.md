@@ -38,7 +38,7 @@ iPhone Shortcuts 不能直接调 NAS API(NAS 用 RSA 加密 + cookie session,Sho
 
 **设计原则**:iPhone 只负责推富文本 HTML,**服务端自动剥样式 / 转干净 HTML / 抽 title / 查重 / 落盘**。iOS 端 0 密钥 0 配置。
 
-**为什么需要服务端转 HTML**:iOS "用多信息文本制作 HTML" 产出的是 Cocoa HTML Writer 完整文档(带 `<!DOCTYPE>/<head>/<style>` 大量 inline CSS + `.AppleSystemUIFont` 这种 iOS 私有字体)。极空间记事本只认简单 HTML 标签(不认 AppleSystemUIFont、不渲染 `class="p1"/s1/s2` 样式),原样存会"标题不凸显 + 表格无边框 + emoji 字体缺失"。服务端 `_cocoa_html_to_clean()` 解决这问题。
+**为什么需要服务端转 HTML**:iOS "用多信息文本制作 HTML" 产出的 HTML 含 iOS 私有样式(AppleSystemUIFont 等)。极空间记事本不认这些样式,服务端 `_cocoa_html_to_clean()` 自动清洗。
 
 ---
 
@@ -47,14 +47,11 @@ iPhone Shortcuts 不能直接调 NAS API(NAS 用 RSA 加密 + cookie session,Sho
 ### 1. 宿主机 dashboard 在跑
 
 ```bash
-cd /home/cc/workspace/zspace-mcp-poc
-set -a && source .env && set +a
-nohup .venv/bin/python -m uvicorn app:app --host 0.0.0.0 --port 8000 &
+cd zspace-mcp-poc
+./start.sh dashboard
 ```
 
-`.env` 里 **`SHORTCUT_KEY` 留空** = 开放模式(只信任 LAN,任何人能推)。
-
-如果要加密钥,把 `.env` 里 `SHORTCUT_KEY=` 后填一串(用 `openssl rand -hex 32` 生成),iOS Shortcut 就要带 `X-Shortcut-Key` 头。本文档按"开放模式"写,最简单。
+`.env` 里 `SHORTCUT_KEY` 留空 = 开放模式(LAN 内任何设备可推)。如果要加密钥,填一串后 iOS Shortcut 带 `X-Shortcut-Key` 头。
 
 ### 2. 验证端点能通
 
@@ -255,7 +252,7 @@ iOS Shortcut 走 HTML 路径时,`<h1>` 已在 body 里。服务端会从 `<h1>` 
       - 方法: `POST`
       - 请求头:留空(开放模式)
       - 请求正文 → 类型 **文本** → 在变量栏选上一步的 **HTML 输出**
-5. (可选)在循环里再加一个 **等待**(`Wait`),设 0.3 秒 —— 防 N150 宿主机和 NAS 同时被压
+5. (可选)在循环里加一个 **等待**(`Wait`),设 0.3 秒。
 6. 顶部 **完成**
 
 ### 手动跑一次
@@ -279,13 +276,13 @@ iOS Shortcut 走 HTML 路径时,`<h1>` 已在 body 里。服务端会从 `<h1>` 
 - **同名跳过**:服务端按 title 精确查重,已存在不覆盖(改了 NAS 端不会盖原笔记,需要重传改名)
 - **emoji/格式保留**:走 4 动作链(不是 2 动作的 `获取文本`),emoji、表格、标题样式都保留
 - **失败重试**:Shortcut 跑某一条失败不会中断整批,但失败的也不会补;可以再跑一遍
-- **耗时**:100 条大概 1-2 分钟(N150 宿主机 + NAS 限速);全量 500 条左右建议分批
+- **耗时**:100 条约 1-2 分钟;全量建议分批
 
 ### 注意
 
 - **第一次跑会很慢**:服务端冷启动 + 第一次 cookie 没缓存要登录
 - **iOS 18 默认禁明文 HTTP**:同第二节,设置 → 快捷指令 → 高级 → 允许访问不安全的网站
-- **iOS 后台被杀**:定时自动化如果当天没打开 Shortcut app 可能漏跑,可以在 `设置 → 快捷指令 → 高级 → 在后台运行内容` 里允许
+- **iOS 后台被杀**:定时自动化可能漏跑,在 `设置 → 快捷指令 → 高级 → 在后台运行内容` 里允许
 - **存储**:500 条笔记 body 平均 1-5KB,NAS 记事本空间够用
 
 ---

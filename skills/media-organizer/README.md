@@ -33,7 +33,7 @@ skills/media-organizer/
 | `audit-all` | 综合报告(头部摘要 + 5 section) | 上面总和 |
 | `migrate --config migration-rules.yaml [--apply]` | 按规则迁移错放文件(默认 dry-run) | 取决于扫描规模 |
 
-## 关键设计:为什么只读
+## 关机设计:只读诊断
 
 合并 / 移动 / 重命名分类**会触发 NAS 重新扫描**(`/classification/rescan`),
 可能跑 30+ 分钟。如果用户在 MCP 客户端点错,NAS 会卡半天。
@@ -50,7 +50,7 @@ skills/media-organizer/
 | `classification/dirs` 不带 binding | 无法从 dirs 反查哪个路径属于哪个分类 | 用户配置 `migration-rules.yaml`(API 不暴露) |
 | rename 端点字段未破 | 不能脚本里重命名 | 用户手动 pcweb UI |
 
-## 实测发现(NAS 当前状态,2026-07-01)
+## 发现(2026-07)
 
 跑 `audit-all --sample 6` 报告(节选):
 ```
@@ -66,7 +66,7 @@ skills/media-organizer/
 ```
 用户 1459 部影片里 1229 部塞在 frds(疑似"老友记"分类)里,实际有电影 + 电视剧混着。
 
-## 实测发现(2026-07-27,migrate + extdev 验证)
+## 发现(2026-07-27,migrate)
 
 - **`/zspace/extdev/` 不是外置设备**:SSH mount 证实是 CIFS/SMB 网络挂载(源 192.168.0.118),NAS API 实测可写
 - **`/v2/file/move` 跨 CIFS→本地是真 move**(源路径被删,非 copy)。之前误判 copy 是因为 **SMB 元数据缓存延迟**——move 后立即查两边都 200,几分钟后源端才变成 N001315

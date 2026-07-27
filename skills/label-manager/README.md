@@ -30,10 +30,9 @@ _load_env()  # 必须在 import nas 前加载 .env
 from nas import NasClient
 ```
 
-为什么直接 import:
-- 简单,零代码改动
-- 只依赖顶层 `nas`(RSA 登录 + cookie 管理),不重复实现
-- 不再经 `zspace.mcp_server` 转发,依赖关系直接
+直接 import 顶层 `nas` 包:
+- 只依赖 RSA 登录 + cookie 管理,不重复实现
+- 不经 `zspace.mcp_server` 转发,依赖关系直接
 
 ## env 加载
 
@@ -41,7 +40,7 @@ from nas import NasClient
 原因:`nas` 包在 import 时(`nas/client.py`)就读 `NAS_USER` / `NAS_PASSWORD` env,
 env 没设会导致后续 `NasClient()` 登录失败。
 
-## 性能数据(N150 实测)
+## 性能
 
 | 操作 | 范围 | 耗时 |
 |------|------|------|
@@ -49,7 +48,7 @@ env 没设会导致后续 `NasClient()` 登录失败。
 | `scan --ext yml --max-depth 2` | 192 个目录 | ~26s |
 | `find-by-label --max-depth 3` | 755 目录 + 8413 文件 | ~110s |
 
-串行不并发,每步 sleep 0.1s。max-depth 默认 5,但大目录建议先 2-3 试水。
+串行不并发,每步 sleep 0.1s。max-depth 默认 5,大目录建议先 2-3 试水。
 
 ## 测试
 
@@ -75,17 +74,16 @@ print(yaml.safe_load(m.group(1)).keys())
 
 ## 已知 gap
 
-- **扫目录无并发**:N150 会卡,但慢;如果以后想快,得先 NAS 端解决
+- **扫目录无并发**:NAS 限速,串行 + sleep 0.1s。
 - **find-by-label 受 max-depth 限制**:深度外文件找不到
 - **没有 apply / delete 子命令**:写操作走 MCP tool(LLM 弹 UI 让用户确认)
-- **最近文件 vs 全文件**:实测 `/v2/file/list` 返回的 item 都带 `labels` 字段,
-  所以可以直接 BFS 拿,不需要走 `recent_files`(原来 plan 担心 992 项硬上限,实测不必要)
+- **最近文件 vs 全文件**:`/v2/file/list` 返回的 item 带 `labels` 字段,直接 BFS 拿。
 
 ## 设计原则
 
 1. **MCP 是原子,Skill 是编排** — 不重复造轮子
 2. **复用顶层 `nas` 包的 NasClient** — 不重复实现登录
-3. **N150 限速** — 串行 + sleep 0.1s + max-depth 默认 5
+3. **限速** — 串行 + sleep 0.1s + max-depth 默认 5
 4. **删除走 MCP tool,不走脚本** — 太危险,必须有 LLM 二次确认
 5. **判断交回 LLM** — 脚本只做机械活(扫文件、过滤),决策(打哪些)LLM 做
 6. **进度回调** — 每 20 个目录 print 一次,LLM 看到进度不会误以为卡死

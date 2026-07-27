@@ -1,7 +1,7 @@
 # ZSpace NAS API 速查
 
 > 入口:`http://<nas_ip>:5055`(HTTP)或 `:5056`(HTTPS)
-> 字段名以实测为准。
+> 字段名以 NAS 返回为准。
 
 ---
 
@@ -139,7 +139,7 @@ sqlite3 /zspace/system/db/device.db "SELECT did, plat, dname FROM device WHERE u
 | `/zspool/external/list` | GET | 外部设备列表 | — |
 | `/zspool/snapshot/list` | POST | 快照列表 | `pool_id` 等 |
 | `/zspool/smart/report2` | POST | SMART 报告 | 磁盘标识 |
-| `/zspool/cache/hits` | GET | 缓存命中率(实测 404,可能已下线) | — |
+| `/zspool/cache/hits` | GET | 缓存命中率(已下线,返回 404) | — |
 | `/storagepool/*` | — | 旧版存储池 API,返回 `N302001 存储池已经升级到v3版本` | — |
 
 ### `/zspool/info` 返回结构(关键字段)
@@ -291,7 +291,7 @@ Content-Type: application/octet-stream
 | `/v2/file/notepad/*` | 笔记(保险箱备忘录 + 独立记事本) | `location=2` 独立记事本无需保险箱;`location=1` 需保险箱开启 | 部分测 |
 | `/v2/file/decrypt/download` | 加密文件下载 | | 未测 |
 
-### 4.5 写 API 字段名易踩坑(参考 skyzhao1223/zspace-cli + 实测)
+### 4.5 写 API 字段名易踩坑(参考 skyzhao1223/zspace-cli)
 
 | 操作 | ❌ 想当然的字段 | ✅ 真实字段 | 备注 |
 |------|---------------|-----------|------|
@@ -362,7 +362,7 @@ Content-Type: application/octet-stream
 | `/zvideo/collection/seen/add` `/delete` | 标记已看 | |
 | `/zvideo/share/v4/list` | 分享列表 | `{}` |
 
-⚠️ 影片明细接口参数没完全摸清,实测 `series/list` 带 `classification_id` 返回了 `count` 但 `list` 是空 —— 可能还需要 `start`/`num` + 某个 type 字段。需要时再深挖。
+⚠️ `series/list` 参数未全破:带 `classification_id` 返回 count>0 但 list 为空,需要补充 `start`/`num` 等字段。
 
 ### 5.3 影视发现 / 浏览类(实测 2026-06-25 新增)
 

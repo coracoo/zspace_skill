@@ -14,7 +14,7 @@ description: Use when 用户想诊断极影视分类问题 — "我的影视库�
 通过组合 NAS MCP tool + `media_organizer.py` 脚本,**只读**诊断极影视的"分类不规范"问题。
 **所有写操作都不在 skill 里** — 报告生成后,用户手动决定怎么处理(用 MCP tool 弹 UI 批准)。
 
-### 为什么只读
+### 只读设计
 - 合并/移动会触发 NAS 重扫(`/classification/rescan`),可能跑 30+ 分钟
 - 影片路径可能是网络挂载(`/zspace/extdev/...`,CIFS/SMB),跨挂载点移动由 NAS 后端处理
 - 诊断先看问题,修复单独做
@@ -117,7 +117,7 @@ description: Use when 用户想诊断极影视分类问题 — "我的影视库�
 
 ---
 
-## NAS 字段类型坑(实测)
+## NAS 字段类型
 
 `/zvideo/classification/list` 返回的元素:
 - `is_system` / `is_enable` / `auto_series` / `not_scrape` / `share_users` 等都是 int(0/1)
