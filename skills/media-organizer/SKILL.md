@@ -157,6 +157,7 @@ description: Use when 用户想诊断极影视分类问题 — "我的影视库�
 | type=999 等奇怪值 | 没在 TYPE_LABELS 里映射 | 用 `--output` 看 JSON 原值 |
 | 可疑路径误报 | 用户确实把 music 目录里部分视频文件分类了 | 看上下文,人工判断 |
 | audit-all 报 0 部去重 | randomlist 返回空(网络问题) | 重跑 |
+| migrate move 后立即查两边都 200 | **SMB 元数据缓存延迟**(CIFS 挂载场景),几分钟后源端才变 N001315;这是真 move 非 copy | 等几分钟再查,或 SSH 看 mount 确认是否为 CIFS |
 
 ---
 

@@ -66,6 +66,12 @@ skills/media-organizer/
 ```
 用户 1459 部影片里 1229 部塞在 frds(疑似"老友记"分类)里,实际有电影 + 电视剧混着。
 
+## 实测发现(2026-07-27,migrate + extdev 验证)
+
+- **`/zspace/extdev/` 不是外置设备**:SSH mount 证实是 CIFS/SMB 网络挂载(源 192.168.0.118),NAS API 实测可写
+- **`/v2/file/move` 跨 CIFS→本地是真 move**(源路径被删,非 copy)。之前误判 copy 是因为 **SMB 元数据缓存延迟**——move 后立即查两边都 200,几分钟后源端才变成 N001315
+- **migrate 端到端测试通过**:scan → plan → apply → cleanup 全链路 OK(SMB→本地 rename 成功)
+
 ## 测试
 
 ```bash
