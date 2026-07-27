@@ -81,16 +81,16 @@
 | | `/zvideo/classification/increase` | POST | classification_id,**file_path[]** | ✅ 写 |
 | | `/zvideo/classification/del` | POST | classification_id | ✅ 写 |
 | | `/zvideo/classification/rmdir` | POST | classification_id,file_path | ✅ 写 |
-| | `/zvideo/classification/editname` | POST | — | 待测 |
+| | `/zvideo/classification/editname` | POST | classification_id, new_name | ✅ |
 | | `/zvideo/classification/rescan` | POST | classification_id | ✅ 写 |
 | | `/zvideo/classification/checkaddstatus` | POST | classification_id | ✅ |
-| | `/zvideo/series/list` | POST | classification_id | ⚠️ list 空 |
+| | `/zvideo/series/list` | POST | ⚠️ 字段待破 | ❌ N001212 |
 | | `/zvideo/series/collection/list` | POST | series_id | 待测 |
 | | `/zvideo/collection/info` | POST | id | ✅ |
 | | `/zvideo/collection/filter` / `filter/v2` | POST | {} | ✅ |
 | | `/zvideo/collection/episode` | POST | — | 待测 |
 | | `/zvideo/collection/add` / `del` | POST | — | 待测 |
-| | `/zvideo/collection/seen/add` / `delete` | POST | — | 待测 |
+| | `/zvideo/collection/seen/add` / `delete` | POST | collection_id | ✅ |
 | | `/zvideo/home/collection/latest` | POST | {} | ✅ list[20] |
 | | `/zvideo/home/collection/suggested` | POST | {} | ✅ list[20] |
 | | `/zvideo/home/share/collection/latest` | POST | {} | ✅ |
@@ -103,9 +103,9 @@
 | | `/zvideo/emby/user/status` | POST | username | ✅ |
 | | `/zvideo/share/v4/list` | POST | {} | ✅ |
 | **分享** | `/v2/share/list` / `statics` | POST | {} | ✅ |
-| | `/v2/share/create` / `delete` / `modify` | POST | id/code | 待测 |
+| | `/v2/share/create` / `modify` / `delete` | POST | paths[],name / code,name / id | ✅ |
 | **内部分享** | `/v2/nshare/list` / `mine` / `forme` | POST | {} | ✅ |
-| | `/v2/nshare/create` / `info` / `cancel` / `discard` / `make` | POST | — | 待测 |
+| | `/v2/nshare/create` | POST | path | ✅ |
 | **最近** | `/v2/recent/list` | POST | {} | ✅ |
 | | `/v2/recent/remove` | POST | — | ✅ 写 |
 | | `/v2/recent/new` | POST | — | 待测 |
@@ -133,7 +133,7 @@
 | | `/v2/public/permission/{list,get,set,switch}` | POST | — | 待测 |
 | | `/v2/public/quota/{list,set}` / `recycle/{clean,restore}` / `user/groups` | POST | — | 待测 |
 | **Web Office** | `/v2/weboffic/getconfig` / `saveconfig` | POST | — | ✅ |
-| | `/v2/onlyoffice/font/{list,save,copy,task}` / `file/rename` | POST | — | 待测 |
+| | `/v2/onlyoffice/font/{list,save,copy,task}` / `file/rename` | POST | — | 部分测 |
 | **极音乐** | `/zmusic/api/v2/song/list` | POST | {} | ✅ |
 | | `/zmusic/api/v2/song/file/share` / `setting` | POST | ⚠️ 需参数 | 待测 |
 | | `/zmusic/api/v2/album/*` / `artist/*` / `playlist/*` / `favorite` / `recent` | POST | — | ❌ 404 |
@@ -454,6 +454,7 @@ Content-Type: application/octet-stream
 | `/zvideo/classification/mode` | 当前模式(按分类/按文件夹) | `{}` |
 | `/zvideo/classification/add` | **新建分类** | `classification_name` + `file_path`(可选,实测不真的关联) + `share_users`(JSON 字符串) + `not_scrape`(0/1) |
 | `/zvideo/classification/increase` | **把目录关联到分类** | `classification_id` + **`file_path[]`**(注意方括号,PHP 数组语法!多个目录就重复 `file_path[]=path1&file_path[]=path2`) |
+| `/zvideo/classification/editname` | 改名 | classification_id, new_name | ✅ 2026-07-27 确认 |
 | `/zvideo/classification/del` | 删除分类 | `classification_id` |
 | `/zvideo/classification/rmdir` | 从分类移除目录 | `classification_id` + `file_path` |
 | `/zvideo/classification/editname` | 改名 | |
@@ -534,9 +535,9 @@ Content-Type: application/octet-stream
 |------|------|----------|
 | `/v2/share/list` | 我创建的外链分享列表 | `{}` 返回 `list[{id, code, pass, fname, dirname, ...}]` |
 | `/v2/share/statics` | 分享统计 | `{}` 返回 `{total, expired, normal, cancel, disable, other}` |
-| `/v2/share/create` | 创建分享 | 待测 |
-| `/v2/share/delete` | 删除分享 | `id` 或 `code` |
-| `/v2/share/modify` | 改分享(密码/有效期) | `id` |
+| `/v2/share/create` | 创建分享 | **`paths[]`**(PHP 数组) + `name`;返回 `data.share.{id,code,pass}` |
+| `/v2/share/modify` | 改分享 | **`code`** + `name` / `pass`(不是 `id`!) |
+| `/v2/share/delete` | 删除分享 | `id` |
 
 ### 6.2 内部分享 `/v2/nshare/*`(用户间分享)
 
@@ -545,9 +546,8 @@ Content-Type: application/octet-stream
 | `/v2/nshare/list` | 全部内部分享 | ✅ 返回 `list[{name, path, is_dir, ...}]` |
 | `/v2/nshare/mine` | 我分享出去的 | ✅ |
 | `/v2/nshare/forme` | 分享给我的 | ✅ |
-| `/v2/nshare/create` | 创建 | 待测 |
-| `/v2/nshare/info` | 详情 | 待测 |
-| `/v2/nshare/cancel` / `discard` / `make` | 待测 | |
+| `/v2/nshare/create` | 创建(分享给用户) | ✅ `path`(单路径字符串) |
+| `/v2/nshare/info` / `cancel` / `discard` / `make` | 详情/取消/丢弃/接收 | 待测 |
 
 ### 6.3 最近访问 `/v2/recent/*`
 
