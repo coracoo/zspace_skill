@@ -1,6 +1,6 @@
 ---
 name: file-organizer
-description: 诊断 ZSpace NAS 文件库,找出重复文件 + 孤儿文件(只读,不动 NAS)。
+description: Use when 用户想诊断 ZSpace NAS 文件库,找出重复文件 + 孤儿文件(只读,不动 NAS)。
   触发词:重复文件、孤儿文件、文件整理诊断、哪些文件重复了、哪些文件没归类、找重复电影、找重复照片。
   不适用:写操作(删除重复 / 移动孤儿)— 这些走 MCP tool(remove/move/save_file_label)+ LLM 二次确认,不在这 skill 范围。
 ---
