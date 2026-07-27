@@ -1,0 +1,34 @@
+# media-organizer migrate 的规则配置文件
+# 用法: cp migration-rules.yaml.example migration-rules.yaml 然后编辑
+#
+# 跑法(先 dry-run):
+#   python skills/media-organizer/media_organizer.py migrate --config migration-rules.yaml --dry-run
+# 实际跑:
+#   python skills/media-organizer/media_organizer.py migrate --config migration-rules.yaml --apply --yes
+
+# 每个库的预期 host path(对应 极影视分类)
+# classification_id 留空也行,跑 migrate 时自动从 classification/list 查
+libraries:
+  - name: 电影
+    expected_host_paths:
+      - /sata14/my/data/movies
+  - name: 电视剧
+    expected_host_paths:
+      - /sata14/my/data/series
+  - name: 动画
+    expected_host_paths:
+      - /sata14/my/data/animes
+  - name: 音乐
+    expected_host_paths:
+      - /sata14/my/data/music
+
+# filename glob → 目标库
+# 注意:这些 rule 用于识别"文件名暗示是 X",不代表"必须挪到 X"
+# 当前所在路径如果已在 target.expected_host_paths 里就不动
+move_rules:
+  - pattern: "*S[0-9][0-9]E[0-9][0-9]*"   # S01E01, S12E05
+    target: 电视剧
+  - pattern: "*[Ss]eason*"               # Season.01
+    target: 电视剧
+  - pattern: "*.mp3"
+    target: 音乐
