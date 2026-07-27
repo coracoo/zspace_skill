@@ -26,6 +26,141 @@
 
 ---
 
+## API 索引
+
+| 域 | 端点 | 方法 | 关键参数 | 状态 |
+|---|---|---|---|---|
+| **鉴权** | `/auth/login` | POST form | username,password,plat,device,device_id | ✅ |
+| | `/auth/token` | POST | token(cookie) | ✅ 内部校验 |
+| | `/auth/loginlist` | POST | — | ✅ |
+| | `/auth/ismaster` / `pwdcheck` / `tmptoken` | POST | — | 待测 |
+| **监控** | `GET /zstatus` | GET | — | ✅ HTML |
+| **存储池** | `/zspool/info` | GET | — | ✅ |
+| | `/zspool/capability` | GET | — | ✅ |
+| | `/zspool/hardware/info` | GET | — | ✅ |
+| | `/zspool/polling` | GET | — | ✅ |
+| | `/zspool/external/list` | GET | — | ✅ |
+| | `/zspool/snapshot/list` | POST | pool_id | ✅ |
+| | `/zspool/smart/report2` | POST | disk_id | ✅ |
+| | `/zspool/cache/hits` | GET | — | 已下线 |
+| | `/storagepool/*` | — | — | 已弃用(N302001) |
+| **文件** | `/v2/file/list` | POST form | path,start,num,sortby,order | ✅ |
+| | `/v2/file/info` | POST form | path | ✅ |
+| | `/v2/file/newdir` | POST form | parent,name,rename | ✅ 写 |
+| | `/v2/file/create` | POST binary | path(URL) | ✅ 上传 |
+| | `/v2/file/modify` | POST form | path,**newname** | ✅ 改名 |
+| | `/v2/file/move` | POST form | **paths[]**,**to** | ✅ |
+| | `/v2/file/copy` | POST form | **paths[]**,**to** | ✅ |
+| | `/v2/file/remove` | POST form | **paths[]** | ✅ 删 |
+| | `/v2/file/download` | GET | path(URL) | ✅ |
+| | `/v2/file/hash` | POST | path | 待测 |
+| | `/v2/file/latest/list` | POST | {} | ✅ |
+| | `/v2/file/categories` | POST | {} | ✅ |
+| | `/v2/file/dwlist` | POST | {} | ✅ |
+| | `/v2/file/empty_dir` | POST | — | 待测 |
+| | `/v2/file/decompress/*` / `/v2/compression/*` | POST | — | 待测 |
+| | `/v2/file/decrypt/download` | POST | — | 待测 |
+| **笔记** | `/v2/file/notepad/list` | POST | start,num,classify_id,location | ✅ |
+| | `/v2/file/notepad/info` | POST | id,location | ✅ |
+| | `/v2/file/notepad/new` | POST | title,body,classify_id,location | ✅ 写 |
+| | `/v2/file/notepad/modify` | POST | id,title,body,location | ✅ 写 |
+| | `/v2/file/notepad/delete` | POST | **ids[]**,location | ✅ 写 |
+| | `/v2/file/notepad/classifylist` / `allclassify` | POST | location | ✅ |
+| | `/v2/file/notepad/newclassify` / `deleteclassify` / `updateclassify` | POST | name,classify_id,location | ✅ 写 |
+| | `/v2/file/notepad/searchnotepad` | POST | keyword,location | ✅ |
+| | `/v2/file/notepad/pin` / `updatelabel` / `movenotepad` | POST | id,... | ✅ 写 |
+| | `/v2/file/notepad/getconfig` / `setconfig` | POST | location | ✅ |
+| | `/v2/file/notepad/totalsize` | POST | location | ✅ |
+| | `/v2/file/notepad/historylist` / `historyinfo` | POST | id,location | ⚠️ historylist N001212 |
+| | `/v2/file/notepad/uploadfile` / `downloadfile` / `downloadocx` / `downloadt` | POST/GET | id,location,file_id | ✅ |
+| | `/v2/file/notepad/save_classify_tree` | POST | tree,location | ✅ 写 |
+| **极影视** | `/zvideo/classification/list` | POST | {} | ✅ |
+| | `/zvideo/classification/dirs` | POST | {} | ✅ |
+| | `/zvideo/classification/mode` | POST | {} | ✅ |
+| | `/zvideo/classification/add` | POST | classification_name,file_path,not_scrape | ✅ 写 |
+| | `/zvideo/classification/increase` | POST | classification_id,**file_path[]** | ✅ 写 |
+| | `/zvideo/classification/del` | POST | classification_id | ✅ 写 |
+| | `/zvideo/classification/rmdir` | POST | classification_id,file_path | ✅ 写 |
+| | `/zvideo/classification/editname` | POST | — | 待测 |
+| | `/zvideo/classification/rescan` | POST | classification_id | ✅ 写 |
+| | `/zvideo/classification/checkaddstatus` | POST | classification_id | ✅ |
+| | `/zvideo/series/list` | POST | classification_id | ⚠️ list 空 |
+| | `/zvideo/series/collection/list` | POST | series_id | 待测 |
+| | `/zvideo/collection/info` | POST | id | ✅ |
+| | `/zvideo/collection/filter` / `filter/v2` | POST | {} | ✅ |
+| | `/zvideo/collection/episode` | POST | — | 待测 |
+| | `/zvideo/collection/add` / `del` | POST | — | 待测 |
+| | `/zvideo/collection/seen/add` / `delete` | POST | — | 待测 |
+| | `/zvideo/home/collection/latest` | POST | {} | ✅ list[20] |
+| | `/zvideo/home/collection/suggested` | POST | {} | ✅ list[20] |
+| | `/zvideo/home/share/collection/latest` | POST | {} | ✅ |
+| | `/zvideo/video/randomlist` | POST | {} | ✅ list[12] |
+| | `/zvideo/video/v2/lately` | POST | {} | ✅ |
+| | `/zvideo/video/v2/playlist` | POST | {} | ✅ |
+| | `/zvideo/favorite/list` | POST | {} | ✅ |
+| | `/zvideo/skip/task/list` | POST | {} | ✅ |
+| | `/zvideo/task/cron/info` | POST | {} | ✅ |
+| | `/zvideo/emby/user/status` | POST | username | ✅ |
+| | `/zvideo/share/v4/list` | POST | {} | ✅ |
+| **分享** | `/v2/share/list` / `statics` | POST | {} | ✅ |
+| | `/v2/share/create` / `delete` / `modify` | POST | id/code | 待测 |
+| **内部分享** | `/v2/nshare/list` / `mine` / `forme` | POST | {} | ✅ |
+| | `/v2/nshare/create` / `info` / `cancel` / `discard` / `make` | POST | — | 待测 |
+| **最近** | `/v2/recent/list` | POST | {} | ✅ |
+| | `/v2/recent/remove` | POST | — | ✅ 写 |
+| | `/v2/recent/new` | POST | — | 待测 |
+| **跨设备备份** | `/v2/crossdevice/backup/list` | POST | {} | ✅ |
+| | `/v2/crossdevice/backup/add` / `delete` / `update` / `start` | POST | — | 写 |
+| **相册** | `/v2/album/albums` | POST | {} | ✅ |
+| | `/v2/album/home` | POST | {} | ✅ |
+| | `/v2/album/dirs` | POST | {} | ✅ |
+| | `/v2/album/position` | POST | — | 待测 |
+| | `/v2/album/album/info` | POST | **album_id** | ✅ |
+| | `/v2/album/album/feeds` | POST | album_id,start,num | ✅ |
+| | `/v2/album/album/{create,delete,modify,change,merge}` | POST | album_id,... | 写 |
+| | `/v2/album/album/feed/{add,delete,move,kick}` | POST | — | 写 |
+| | `/v2/album/album/comments/*` / `posting/*` | POST | — | 待测 |
+| | `/v2/album/album/moments` / `music` / `download` / `binds` / `flush` | POST | album_id | 待测 |
+| | `/v2/album/ai/state` | POST | {} | ✅ |
+| | `/v2/album/ai/taskManager` / `taskEventList` | POST | {} | ✅ |
+| | `/v2/album/ai/history/today` | POST | {} | ✅ |
+| | `/v2/album/ai/cluster_detect/options` | POST | {} | ✅ |
+| | `/v2/album/ai/picking/menu_bar` / `task/status` | POST | {} | ✅ |
+| | `/v2/album/ai/{clean,recluster,rescene,run}` | POST | — | 写(空 body) |
+| | `/v2/album/ai/progress` / `ocr/search` / `picking/result` / `history/today/persons/not_display` | POST | ⚠️ 字段待破 | 待测 |
+| **加密目录** | `/v2/encryptdir/{new,lock,unlock,release,rename,resetpasswd,seticon}` | POST | path,... | 待测 |
+| **用户权限** | `/v2/public/group/{list,add,delete}` | POST | — | 待测 |
+| | `/v2/public/permission/{list,get,set,switch}` | POST | — | 待测 |
+| | `/v2/public/quota/{list,set}` / `recycle/{clean,restore}` / `user/groups` | POST | — | 待测 |
+| **Web Office** | `/v2/weboffic/getconfig` / `saveconfig` | POST | — | ✅ |
+| | `/v2/onlyoffice/font/{list,save,copy,task}` / `file/rename` | POST | — | 待测 |
+| **极音乐** | `/zmusic/api/v2/song/list` | POST | {} | ✅ |
+| | `/zmusic/api/v2/song/file/share` / `setting` | POST | ⚠️ 需参数 | 待测 |
+| | `/zmusic/api/v2/album/*` / `artist/*` / `playlist/*` / `favorite` / `recent` | POST | — | ❌ 404 |
+| **下载** | `/downloader/list` | POST | {} | ✅ |
+| | `/downloader/share/add` | POST | — | 待测 |
+| **网盘** | `/znetdisk/auth/{check,token,userinfo,logout}` | POST JSON | app,code | ✅ |
+| | `/znetdisk/file/{list,download,upload,newdir}` | POST JSON | file_path[],save_path,dir | ✅ |
+| | `/znetdisk/task/{list,action}` | POST JSON | — | ✅ |
+| | `/znetdisk/sync/{list,add,home,open,close,delete}` | POST JSON | local_dir,remote_dir | ✅ |
+| | `/znetdisk/autobackup/{add,info,start,stop,delete,faillist,clear_fail_files}` | POST JSON | — | ✅ |
+| | `/znetdisk/share/{verify,filelist,transfer,transfer_result}` | POST JSON | 提取码 | ✅ |
+| | `/znetdisk/fail/list` / `membership/active` / `order/*` | POST JSON | — | ✅ |
+| **文件搜索** | `/file_search/file_search` | POST | keyword | ✅ |
+| | `/file_search/office_search` | POST | keyword | ✅ |
+| | `/file_search/slow_file_search/{start,stop,get_result}` | POST | — | ✅ |
+| | `/file_search/{get_setting,save_setting,reindex,check_reindex}` | POST | — | ✅ |
+| | `/file_search/skip_dir/{list,add,delete}` / `search_log/{get,delete}` | POST | — | ✅ |
+| **共享服务** | `/api/fileshare_service/{samba,webdav,ftp,dlna,tm}/status` | POST | {} | ✅ |
+| | `/api/fileshare_service/{samba,webdav,ftp,dlna,tm}/{config,enable}` | POST | — | 待测 |
+| **设备/账号** | `/auth/{master,ismaster,pwdcheck,tmptoken,loginlist}` | POST | — | 部分测 |
+| **404 后端** | `/v2/email/*` `/v2/qc/*` `/v2/ud/*` `/v2/short/create` `/v2/captcha/*` `/v2/tob/share/config/get` | — | — | ❌ |
+| **AI Lab** | `/AiLab/*` `/AiLabApi/Llamas/*` `/AppCenter/*` | — | — | ❌ 未启用 |
+
+> **图例**:✅=已验证通  ⚠️=部分可用/字段待破  ❌=不可用  待测=端点存在未测  写=破坏性操作
+
+---
+
 ## 1. 鉴权
 
 ### 1.1 登录:RSA 加密 + form-urlencoded
