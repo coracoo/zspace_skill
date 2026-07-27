@@ -66,7 +66,15 @@ class NasClient:
         resp = await self._client.post(f"{NAS_BASE}/auth/login", data=form)
         body = resp.json()
         if str(body.get("code")) != "200":
-            raise RuntimeError(f"login failed: code={body.get('code')} msg={body.get('msg')}")
+            code = str(body.get("code"))
+            if code == "N001414":
+                raise RuntimeError(
+                    f"新设备需验证(N001414)。\n"
+                    f"  device_id: {self._device_id}\n"
+                    f"  打开浏览器访问 http://{os.environ.get('NAS_HOST', '<nas_ip>')}:5055/ 扫码/短信验证后重试。\n"
+                    f"  如有已登记设备:浏览器登录后 F12→Cookies→device_id→贴到 .env 的 NAS_DEVICE_ID=。"
+                )
+            raise RuntimeError(f"login failed: code={code} msg={body.get('msg')}")
         data = body["data"]
         self._cookies = {
             "token": data.get("token", ""),
