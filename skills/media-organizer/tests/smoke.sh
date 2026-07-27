@@ -7,18 +7,18 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 
-# 从 SKILL_DIR 往上找项目根(找到含 mcp_server.py 的目录)
+# 从 SKILL_DIR 往上找项目根(找到含 start.sh 的目录)
 SEARCH_DIR="$SKILL_DIR"
 while [ "$SEARCH_DIR" != "/" ]; do
-    if [ -f "$SEARCH_DIR/mcp_server.py" ]; then
+    if [ -f "$SEARCH_DIR/start.sh" ]; then
         PROJECT_ROOT="$SEARCH_DIR"
         break
     fi
     SEARCH_DIR="$(dirname "$SEARCH_DIR")"
 done
 
-if [ -z "$PROJECT_ROOT" ] || [ ! -f "$PROJECT_ROOT/mcp_server.py" ]; then
-    echo "❌ 找不到项目根(含 mcp_server.py 的目录)"
+if [ -z "$PROJECT_ROOT" ] || [ ! -f "$PROJECT_ROOT/start.sh" ]; then
+    echo "❌ 找不到项目根(含 start.sh 的目录)"
     exit 1
 fi
 
@@ -114,6 +114,88 @@ from lib.nas_client import NasClient, PROJECT_ROOT
 assert PROJECT_ROOT.name == 'zspace-mcp-poc', f'PROJECT_ROOT={PROJECT_ROOT}'
 print('  ✓ lib/nas_client.py 可 import,PROJECT_ROOT 正确')
 " 2>&1 | grep "✓" || { echo "❌ import 失败"; exit 1; }
+
+echo ""
+echo "=== migrate (新增) ==="
+
+echo "=== TEST M1: migration-rules.yaml.example 可加载 ==="
+"$PY" -c "
+import sys; sys.path.insert(0, '$SKILL_DIR')
+from lib.migration_rules import load_config
+cfg = load_config('$SKILL_DIR/migration-rules.yaml.example')
+assert len(cfg.libraries) >= 1
+assert len(cfg.move_rules) >= 1
+print('  ✓ example config loads')
+" 2>&1 | grep "✓" || { echo "❌ M1 FAIL"; exit 1; }
+
+echo "=== TEST M2: match_rule 启发式匹配 ==="
+"$PY" -c "
+import sys; sys.path.insert(0, '$SKILL_DIR')
+from lib.migration_rules import load_config, match_rule
+cfg = load_config('$SKILL_DIR/migration-rules.yaml.example')
+assert match_rule('Friends.S01E01.mkv', cfg.move_rules).target == '电视剧'
+assert match_rule('Inception.2010.mkv', cfg.move_rules) is None
+assert match_rule('song.mp3', cfg.move_rules).target == '音乐'
+print('  ✓ match_rule SxxExx + mp3 patterns')
+" 2>&1 | grep "✓" || { echo "❌ M2 FAIL"; exit 1; }
+
+echo "=== TEST M3: infer_current_library 路径前缀匹配 ==="
+"$PY" -c "
+import sys; sys.path.insert(0, '$SKILL_DIR')
+from lib.migration_rules import load_config, infer_current_library
+cfg = load_config('$SKILL_DIR/migration-rules.yaml.example')
+assert infer_current_library('/sata14/my/data/movies/x.mkv', cfg.libraries).name == '电影'
+assert infer_current_library('/sata14/my/data/series/y.mkv', cfg.libraries).name == '电视剧'
+assert infer_current_library('/random/path/z.mkv', cfg.libraries) is None
+print('  ✓ infer_current_library')
+" 2>&1 | grep "✓" || { echo "❌ M3 FAIL"; exit 1; }
+
+echo "=== TEST M4: build_plan 合成候选 ==="
+"$PY" -c "
+import sys; sys.path.insert(0, '$SKILL_DIR')
+from media_organizer import Migrator
+from lib.migration_rules import load_config
+cfg = load_config('$SKILL_DIR/migration-rules.yaml.example')
+m = Migrator(cfg)
+files = {
+    '电影': ['/sata14/my/data/movies/Inception.2010.mkv',
+             '/sata14/my/data/movies/Friends.S01E01.mkv',
+             '/sata14/my/data/movies/song.mp3'],
+    '电视剧': ['/sata14/my/data/series/Breaking.Bad.S01E01.mkv'],
+    '音乐': ['/sata14/my/data/music/song1.mp3'],
+}
+plan = m.build_plan(files)
+assert len(plan) == 2, f'expected 2, got {len(plan)}'
+assert plan[0]['target_lib'] == '电视剧'
+assert plan[1]['target_lib'] == '音乐'
+print('  ✓ build_plan (S01E01 + .mp3 都识别为错放)')
+" 2>&1 | grep "✓" || { echo "❌ M4 FAIL"; exit 1; }
+
+echo "=== TEST M5: migrate --help 暴露 ==="
+if "$PY" "$SKILL_DIR/media_organizer.py" migrate --help 2>&1 | grep -q -- '--apply'; then
+    echo "  ✓ --apply flag 暴露"
+else
+    echo "❌ M5 FAIL: --apply missing"
+    exit 1
+fi
+
+echo "=== TEST M6: move_rules.target 必须在 libraries.name ==="
+"$PY" -c "
+import sys; sys.path.insert(0, '$SKILL_DIR')
+from lib.migration_rules import load_config
+import tempfile, os
+with tempfile.NamedTemporaryFile('w', suffix='.yaml', delete=False) as f:
+    f.write('move_rules:\n  - pattern: \"*.mkv\"\n    target: nonexistent_lib\nlibraries: []\n')
+    p = f.name
+try:
+    try:
+        load_config(p)
+        print('❌ M6 FAIL: 没报错'); raise SystemExit(1)
+    except ValueError:
+        print('  ✓ target 不在 libraries → ValueError')
+finally:
+    os.unlink(p)
+" 2>&1 | grep "✓" || { echo "❌ M6 FAIL"; exit 1; }
 
 echo ""
 echo "🎉 所有 smoke test 通过"
