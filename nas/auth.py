@@ -3,7 +3,9 @@
 4 处复用:dashboard/app.py、zspace/mcp_server.py、skills/*/lib/。
 """
 import base64
+import hashlib
 import os
+from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
@@ -32,6 +34,36 @@ def encrypt_field(plain: str) -> str:
 
 
 def resolve_device_id() -> str:
-    """优先 env NAS_DEVICE_ID,否则用代码默认值。始终 32 字符。"""
+    """获取 32 字符 device_id。
+
+    优先级:
+    1.  env `NAS_DEVICE_ID`(32 字符) — 用户明确指定
+    2.  `NAS_DEVICE_ID` 非 32 字符 → 从机器指纹自动生成持久化值,
+        存到 `~/.cache/zspace-mcp/device_id` 下次复用
+    """
     did = os.environ.get("NAS_DEVICE_ID", "").strip()
-    return did if (len(did) == 32) else NAS_DEVICE_ID_DEFAULT
+    if len(did) == 32:
+        return did
+
+    # 自动生成:从 /etc/machine-id + NAS_HOST hash,32 字符 hex
+    cache_dir = Path.home() / ".cache" / "zspace-mcp"
+    cache_file = cache_dir / "device_id"
+    if cache_file.exists():
+        cached = cache_file.read_text().strip()
+        if len(cached) == 32:
+            return cached
+
+    host = os.environ.get("NAS_HOST", "unknown")
+    try:
+        machine = Path("/etc/machine-id").read_text().strip()
+    except Exception:
+        try:
+            machine = Path("/var/lib/dbus/machine-id").read_text().strip()
+        except Exception:
+            machine = os.uname().nodename
+    seed = f"{machine}:{host}"
+    did = hashlib.sha256(seed.encode()).hexdigest()[:32]
+
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_file.write_text(did)
+    return did
