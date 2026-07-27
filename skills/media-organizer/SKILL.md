@@ -16,7 +16,7 @@ description: Use when 用户想诊断极影视分类问题 — "我的影视库�
 
 ### 为什么只读
 - 合并/移动会触发 NAS 重扫(`/classification/rescan`),可能跑 30+ 分钟
-- 影片可能在 `/zspace/extdev/...`(外置设备,只读),移动不了
+- 影片路径可能是网络挂载(`/zspace/extdev/...`,CIFS/SMB),跨挂载点移动由 NAS 后端处理
 - 诊断先看问题,修复单独做
 
 ---
@@ -96,7 +96,7 @@ description: Use when 用户想诊断极影视分类问题 — "我的影视库�
 
 **关键约束**:
 - 默认 dry-run,移动是物理破坏性操作
-- 目标路径前缀 `/zspace/extdev/` 一律跳过(只读外置设备)
+- 移入目标路径 `/zspace/extdev/` 是网络挂载(CIFS),跨挂载点 move 由 NAS 后端处理,成不成执行时看报错
 - `move_rules.target` 必须在 `libraries.name` 里(配置时校验)
 - 改源目录后 NAS 不会自动重扫,需要 LLM 调 classification/rescan
 - NAS API 不暴露 library↔path 的 binding(`/zvideo/classification/dirs` 不带 `classification_name`,`/zvideo/classification/list` 不带 `file_path[]`),所以**配置是规则唯一可靠来源**
@@ -112,7 +112,7 @@ description: Use when 用户想诊断极影视分类问题 — "我的影视库�
 3. **NAS 没"按分类列 collection"全量端点** — `series/list` count=0 已知 bug,只能 randomlist 抽样
 4. **采样覆盖有限** — `randomlist` 每次 12 部,理论最多覆盖 ~150 部(8 次 + 去重),对于 1459 总数是 ~10% 抽样
 5. **type 字段语义** — type=100 电影、200 电视剧、300 综艺/其他(从抽样推断,可能有未列出的值)
-6. **路径权限** — `/zspace/extdev/...` 外置设备只读,移动需要 NAS 后台操作
+6. **路径权限** — `/zspace/extdev/...` 是 CIFS 网络挂载(SSH mount 查看证实),NAS API 实测可写,不走"外置设备只读"假设
 7. **系统分类重命名/合并** — 系统分类(`is_system=1`)只能由 NAS 端处理,用户无法修改
 
 ---

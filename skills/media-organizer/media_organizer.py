@@ -4,16 +4,16 @@
 ⚠️ **只读诊断,不动 NAS** — 这是纯审计工具,所有"修复"建议只在报告里。
 
 为什么只读:
-  - 用户的 1459 个 collection 散布在 frds/电影/电视剧 等分类里,合并/移动
-    会触发 NAS 重新扫描 (task),可能跑几十分钟
-  - 路径可能在 /zspace/extdev/...(外置设备,只读),移动不了
+  - 合并/移动分类会触发 NAS 重新扫描(task),可能跑几十分钟
   - 诊断先看问题,修复用 MCP tool + LLM 二次确认
+  - migrate 例外:物理文件挪动走 API,但默认 dry-run,逐条确认
 
 诊断命令:
   audit-classifications  审计分类(重名 / 空 / 异常名)
   audit-sources         审计源目录(不该在影视库的路径)
   audit-collections     抽样审计 collection(type 分布 + 分类一致性)
   audit-all             一键全跑,输出综合报告
+  migrate               按规则迁移错放文件(默认 dry-run)
 """
 import argparse
 import asyncio
@@ -129,7 +129,8 @@ class MediaAuditor:
 
         检测:
           - 不该在影视库的路径(用户的 /my/data/<非影视目录>)
-          - 外置设备路径(/zspace/extdev/...)— 用户对它们只读
+          - 网络挂载路径(/zspace/extdev/*)— SMB/CIFS 共享,源在另一台机器
+            (实测 NAS 这边 API 可写,移动跨挂载点由 NAS 后端处理)
           - 重叠扫描(两个分类扫同一目录 — 间接证据)
         """
         r = await self.nas.post("/zvideo/classification/dirs", {})
@@ -138,7 +139,7 @@ class MediaAuditor:
         dirs = r.get("data", [])
 
         user_pool_dirs = []  # 在用户 /sata14/my/data/ 下的
-        extdev_dirs = []  # 在 /zspace/extdev/ 下的(外置设备,只读)
+        network_mounts = []  # 在 /zspace/extdev/ 下的(CIFS 网络挂载,源在 192.168.x.x)
         suspicious = []  # 可疑:用户池里但不像影视目录
 
         for raw in dirs:
@@ -151,7 +152,6 @@ class MediaAuditor:
                 user_pool_dirs.append(entry)
                 # 检测:用户的非 my/data/ 子路径,或者在 my/data/ 但不是影视子目录
                 if d.startswith("/sata14/my/data/"):
-                    # 看看是不是 music / 备份 / 其他非影视子目录
                     tail = d.replace("/sata14/my/data/", "", 1).strip("/")
                     top = tail.split("/", 1)[0] if tail else ""
                     non_media = {"music", "备份", "backup", "文档", "docs", "photo", "照片"}
@@ -160,7 +160,9 @@ class MediaAuditor:
                 else:
                     suspicious.append({**entry, "reason": "在 /sata14/my/ 下但不在 /my/data/ 子目录"})
             elif d.startswith("/zspace/extdev/"):
-                extdev_dirs.append(entry)
+                # 实测:这是 CIFS 网络挂载,源在 192.168.x.x(另一台机器)。
+                # NAS 这边 API 可写(uid 匹配挂载 owner),但不一定是真"本地"路径。
+                network_mounts.append(entry)
             else:
                 suspicious.append({**entry, "reason": f"未知前缀: {d[:30]}"})
 
@@ -168,7 +170,7 @@ class MediaAuditor:
             "ok": True,
             "total": len(dirs),
             "user_pool_dirs": user_pool_dirs,
-            "extdev_dirs": extdev_dirs,
+            "network_mounts": network_mounts,
             "suspicious": suspicious,
             "all_dirs": dirs,
         }
@@ -486,7 +488,7 @@ def _render_sources(audit: dict) -> str:
     lines = []
     lines.append(f"📁 源目录审计 — 共 {audit['total']} 个扫描源")
     lines.append(f"  用户池(/sata14/my/): {len(audit['user_pool_dirs'])} 个")
-    lines.append(f"  外置设备(/zspace/extdev/): {len(audit['extdev_dirs'])} 个")
+    lines.append(f"  网络挂载(/zspace/extdev/): {len(audit['network_mounts'])} 个")
     lines.append("")
 
     if audit["suspicious"]:
@@ -496,12 +498,14 @@ def _render_sources(audit: dict) -> str:
             lines.append(f"    原因: {s['reason']}")
         lines.append("")
 
-    if audit["extdev_dirs"]:
-        lines.append(f"ℹ️ 外置设备路径({len(audit['extdev_dirs'])} 个,只读,无法直接移动):")
-        for d in audit["extdev_dirs"][:10]:
+    if audit["network_mounts"]:
+        lines.append(f"ℹ️ 网络挂载({len(audit['network_mounts'])} 个,CIFS/SMB 共享,源在另一台机器 192.168.x.x):")
+        for d in audit["network_mounts"][:10]:
             lines.append(f"  {d['path']}")
-        if len(audit["extdev_dirs"]) > 10:
-            lines.append(f"  ... 还有 {len(audit['extdev_dirs']) - 10} 个")
+        if len(audit["network_mounts"]) > 10:
+            lines.append(f"  ... 还有 {len(audit['network_mounts']) - 10} 个")
+        lines.append("")
+        lines.append("    NAS API 实测可写(uid 匹配挂载 owner),move 走 NAS 后端")
         lines.append("")
 
     return "\n".join(lines)
@@ -740,9 +744,10 @@ class Migrator:
                     continue
                 for it in items:
                     if isinstance(it, dict):
-                        p = it.get("path") or it.get("name", "")
+                        # item["path"] 已是 NAS 返回的完整路径(含父目录)
+                        p = it.get("path") or f"{path}/{it.get('name', '')}"
                         if p:
-                            files.append(f"{path}/{p}".replace("//", "/"))
+                            files.append(p)
             result[lib.name] = files
         return result
 
@@ -764,8 +769,6 @@ class Migrator:
                     continue
                 target_path = target_path_by_lib.get(rule.target)
                 if not target_path:
-                    continue
-                if target_path.startswith("/zspace/extdev/"):
                     continue
                 dst = f"{target_path}/{filename}"
                 plan.append({
@@ -795,11 +798,7 @@ class Migrator:
                 result["skipped"].append({**item, "reason_skip": "dry-run"})
                 continue
 
-            if dst.startswith("/zspace/extdev/"):
-                result["skipped"].append({**item, "reason_skip": "target read-only"})
-                continue
-
-            # 目标已存在同名?
+            # target exists?
             try:
                 info = await self.nas.post("/v2/file/info", {"path": dst})
                 if (
