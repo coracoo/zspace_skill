@@ -24,6 +24,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from lib.migration_rules import (  # noqa: E402
+    MigrationConfig,
+    load_config,
+    match_rule,
+)
 from lib.nas_client import NasClient, PROJECT_ROOT  # noqa: E402
 
 
@@ -689,6 +694,179 @@ def _render_summary(report: dict) -> str:
         lines.append("")
     lines.append("详细报告见下方各 section。")
     lines.append("")
+    return "\n".join(lines)
+
+
+# ============ Migrator (cross-library file move) ============
+
+class Migrator:
+    """按 migration-rules.yaml 检测错放文件并物理迁移。
+
+    用 NAS API(classification/list + /v2/file/list)校验 + 扫描,
+    移动走 /v2/file/move。
+    """
+
+    def __init__(self, config, nas=None):
+        self.config = config
+        self.nas = nas or NasClient()
+
+    async def resolve_library_ids(self) -> dict[str, str]:
+        """classification/list → {library_name: classification_id}。
+
+        已配的不覆盖;只填空的。
+        """
+        r = await self.nas.post("/zvideo/classification/list", {})
+        if str(r.get("code")) != "200":
+            return {}
+        by_name = {c.get("name"): c.get("id", "") for c in r.get("data", [])}
+        for lib in self.config.libraries:
+            if not lib.classification_id and lib.name in by_name:
+                lib.classification_id = by_name[lib.name]
+        return by_name
+
+    async def scan_files(self) -> dict[str, list[str]]:
+        """/v2/file/list(each path) → {lib_name: [abs_file_path]}。
+
+        响应结构: r["data"]["list"][i]["path"]。
+        """
+        result: dict[str, list[str]] = {}
+        for lib in self.config.libraries:
+            files: list[str] = []
+            for path in lib.expected_host_paths:
+                r = await self.nas.post("/v2/file/list", {"path": path, "limit": 10000})
+                data = r.get("data") or {}
+                items = data.get("list") if isinstance(data, dict) else data
+                if not isinstance(items, list):
+                    continue
+                for it in items:
+                    if isinstance(it, dict):
+                        p = it.get("path") or it.get("name", "")
+                        if p:
+                            files.append(f"{path}/{p}".replace("//", "/"))
+            result[lib.name] = files
+        return result
+
+    def build_plan(self, files_by_lib: dict[str, list[str]]) -> list[dict]:
+        """对每个文件:命中 rule 且当前 lib != target → 候选迁移。"""
+        target_path_by_lib: dict[str, str] = {}
+        for lib in self.config.libraries:
+            if lib.expected_host_paths:
+                target_path_by_lib[lib.name] = lib.expected_host_paths[0]
+
+        plan: list[dict] = []
+        for lib_name, files in files_by_lib.items():
+            for fp in files:
+                filename = fp.rsplit("/", 1)[-1]
+                rule = match_rule(filename, self.config.move_rules)
+                if not rule:
+                    continue
+                if rule.target == lib_name:
+                    continue
+                target_path = target_path_by_lib.get(rule.target)
+                if not target_path:
+                    continue
+                if target_path.startswith("/zspace/extdev/"):
+                    continue
+                dst = f"{target_path}/{filename}"
+                plan.append({
+                    "src": fp,
+                    "dst": dst,
+                    "current_lib": lib_name,
+                    "target_lib": rule.target,
+                    "reason": f"filename={filename!r} 命中 pattern={rule.pattern!r}",
+                })
+        return plan
+
+    async def execute(
+        self, plan: list[dict], dry_run: bool = True, yes: bool = False
+    ) -> dict:
+        """执行迁移。dry_run 时只打印,不动 NAS。"""
+        result = {"applied": [], "skipped": [], "failed": []}
+
+        for i, item in enumerate(plan, 1):
+            src, dst = item["src"], item["dst"]
+            print(
+                f"\n[{i}/{len(plan)}] {src}\n"
+                f"   → {dst}\n"
+                f"   ({item['current_lib']} → {item['target_lib']}, {item['reason']})"
+            )
+
+            if dry_run:
+                result["skipped"].append({**item, "reason_skip": "dry-run"})
+                continue
+
+            if dst.startswith("/zspace/extdev/"):
+                result["skipped"].append({**item, "reason_skip": "target read-only"})
+                continue
+
+            # 目标已存在同名?
+            try:
+                info = await self.nas.post("/v2/file/info", {"path": dst})
+                if (
+                    isinstance(info, dict)
+                    and str(info.get("code")) == "200"
+                    and info.get("data")
+                ):
+                    result["skipped"].append({**item, "reason_skip": "target exists"})
+                    continue
+            except Exception:
+                pass
+
+            try:
+                dst_dir = dst.rsplit("/", 1)[0]
+                r = await self.nas.post(
+                    "/v2/file/move", {"paths[]": [src], "to": dst_dir}
+                )
+                if isinstance(r, dict) and str(r.get("code")) == "200":
+                    result["applied"].append(item)
+                else:
+                    result["failed"].append({**item, "error": str(r.get("msg") or r)})
+            except Exception as e:
+                result["failed"].append({**item, "error": repr(e)})
+
+        return result
+
+
+def _render_migrate_plan(plan: list[dict], config: MigrationConfig) -> str:
+    if not plan:
+        return "✓ 没有发现错放文件"
+    lines = [f"📋 拟迁移计划(共 {len(plan)} 条)"]
+    lines.append("")
+    by_src: dict[str, list[dict]] = {}
+    for p in plan:
+        by_src.setdefault(p["current_lib"], []).append(p)
+    for src_lib in sorted(by_src, key=lambda k: -len(by_src[k])):
+        items = by_src[src_lib]
+        lines.append(f"  '{src_lib}' → 其它 {len(items)} 条:")
+        for it in items[:20]:
+            lines.append(f"    [{it['target_lib']}] {it['src']}")
+            lines.append(f"      → {it['dst']}")
+        if len(items) > 20:
+            lines.append(f"    ... 还有 {len(items) - 20} 条")
+    lines.append("")
+    lines.append("ℹ️ 默认 dry-run。--apply 实际执行移动。")
+    return "\n".join(lines)
+
+
+def _render_migrate_result(result: dict) -> str:
+    lines = ["📦 迁移执行结果:"]
+    lines.append(f"  ✅ 已迁移: {len(result['applied'])}")
+    lines.append(f"  ⏭️  跳过:   {len(result['skipped'])}")
+    lines.append(f"  ❌ 失败:   {len(result['failed'])}")
+    if result["failed"]:
+        lines.append("")
+        lines.append("失败明细:")
+        for f in result["failed"][:10]:
+            lines.append(f"  {f['src']} → {f['dst']}: {f.get('error', '?')}")
+    if result["skipped"] and any("reason_skip" in s for s in result["skipped"]):
+        skip_reasons: dict[str, int] = {}
+        for s in result["skipped"]:
+            r = s.get("reason_skip", "?")
+            skip_reasons[r] = skip_reasons.get(r, 0) + 1
+        lines.append("")
+        lines.append("跳过原因:")
+        for r, n in sorted(skip_reasons.items(), key=lambda x: -x[1]):
+            lines.append(f"  {r}: {n}")
     return "\n".join(lines)
 
 
