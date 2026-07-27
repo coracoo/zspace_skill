@@ -913,6 +913,42 @@ async def _async_main(args):
                 Path(args.output).write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
                 print(f"✓ JSON 写入 {args.output}", file=sys.stderr)
             print(full_text)
+        elif args.cmd == "migrate":
+            cfg = load_config(args.config)
+            mig = Migrator(cfg)
+            try:
+                await mig.resolve_library_ids()
+                files_by_lib = await mig.scan_files()
+                plan = mig.build_plan(files_by_lib)
+
+                if args.output:
+                    plan_data = {
+                        "plan": plan,
+                        "libraries": [
+                            {"name": l.name, "classification_id": l.classification_id,
+                             "expected_host_paths": l.expected_host_paths}
+                            for l in cfg.libraries
+                        ],
+                    }
+                    Path(args.output).write_text(
+                        json.dumps(plan_data, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
+                    print(f"✓ 计划 JSON 写入 {args.output}", file=sys.stderr)
+
+                print(_render_migrate_plan(plan, cfg))
+                if plan and args.apply:
+                    print()
+                    print("=" * 60)
+                    result = await mig.execute(plan, dry_run=False, yes=args.yes)
+                    print(_render_migrate_result(result))
+                    if args.output:
+                        Path(args.output).write_text(
+                            json.dumps({"plan": plan, "result": result}, ensure_ascii=False, indent=2),
+                            encoding="utf-8",
+                        )
+            finally:
+                await mig.nas.aclose()
         else:
             raise SystemExit(f"unknown cmd: {args.cmd}")
     finally:
@@ -939,6 +975,16 @@ def main():
     a.add_argument("--sample", type=int, default=8, help="randomlist 采样次数(audit-collections)")
     a.add_argument("--suggest-sample", type=int, default=20, help="suggest-moves 的随机采样次数,默认 20")
     a.add_argument("--output", default=None, help="同时把 JSON 详细结果写入文件")
+
+    mg = sub.add_parser("migrate", help="按规则迁移错放文件(dry-run 默认)")
+    mg.add_argument("--config", default="migration-rules.yaml",
+                    help="规则配置路径,默认 ./migration-rules.yaml")
+    mg.add_argument("--apply", action="store_true",
+                    help="实际执行移动(默认 dry-run,只打印计划)")
+    mg.add_argument("--yes", action="store_true",
+                    help="跳过逐条确认(仅 --apply 时有效)")
+    mg.add_argument("--output", default=None,
+                    help="把计划/结果 JSON 写入文件")
 
     args = parser.parse_args()
     asyncio.run(_async_main(args))
