@@ -1,8 +1,8 @@
 ---
 name: media-organizer
-description: Use when 用户想诊断极影视分类问题 — "我的影视库分类有没有问题"、"frds 这个分类是不是太杂了"、"哪些影片分错类了"、"帮我出个影视库整理报告"。5 个只读审计命令:分类/源目录/影片抽样/挪动建议/一键全跑。只读不动 NAS。
-  触发词:极影视整理、影片库分类诊断、影视分类不规范、frds 拆分、整理影视库、影视分类合并建议、影片是否在对的分类、collection 错放、哪些影片分错类了、影视库审计、极影视诊断。
-  不适用:写操作(合并分类/移动影片/重命名)— 这些走 MCP tool + LLM 二次确认,不在这 skill 范围。但有个例外:挪文件物理位置让极影视自动重扫是可行路径(不走 MCP 写 tool,直接 move/rename MCP tool + 等 NAS 自己重扫)。
+description: Use when 用户想诊断极影视分类问题 — "我的影视库分类有没有问题"、"frds 这个分类是不是太杂了"、"哪些影片分错类了"、"帮我出个影视库整理报告"。6 个命令:5 个只读审计(分类/源目录/影片抽样/挪动建议/一键全跑)+ 1 个跨库文件物理迁移(migrate,默认 dry-run)。
+  触发词:极影视整理、影片库分类诊断、影视分类不规范、frds 拆分、整理影视库、影视分类合并建议、影片是否在对的分类、collection 错放、哪些影片分错类了、影视库审计、极影视诊断、影视文件挪库、文件放错库、跨库迁移、A 仓库的挪到 B 仓库、move file to right library、影视库文件挪动。
+  不适用:写操作(合并分类/移动影片/重命名)— 这些走 MCP tool + LLM 二次确认,不在这 skill 范围。**例外 1**:挪文件物理位置让极影视自动重扫是可行路径(不走 MCP 写 tool,直接 move/rename MCP tool + 等 NAS 自己重扫)— 走 `migrate` 子命令(场景 5,基于 `migration-rules.yaml` 配置,默认 dry-run,逐条确认)。**例外 2**:整分类的 metadata 修改(collection 挪分类)无 NAS API 端点,只能 pcweb UI 改。
 ---
 
 # Media Organizer — NAS 极影视只读诊断
@@ -82,6 +82,27 @@ description: Use when 用户想诊断极影视分类问题 — "我的影视库�
 2. 读 stdout(给人看) + `/tmp/audit.json`(详细 JSON)
 3. 头部摘要显示发现 N 类问题,后面分 section 详细列
 
+### 场景 5:用户说"A 仓库下有 XX 影片,应该挪到 B 仓库"
+
+(基于 `migration-rules.yaml` 配置,启发式匹配 filename pattern → target library)
+
+**步骤**:
+1. **首次跑**:复制 `skills/media-organizer/migration-rules.yaml.example` 为 `migration-rules.yaml`,编辑 `libraries[].expected_host_paths` 和 `move_rules`(声明每个库的预期 path + filename pattern)
+2. **exec** `python skills/media-organizer/media_organizer.py migrate --dry-run` → 打印计划(只读,不动 NAS)
+3. **审计划**:每条候选 src/dst/reason,让 LLM 走确认
+4. **exec** `python skills/media-organizer/media_organizer.py migrate --apply` → 实际 move(逐条确认)
+5. **exec** `python skills/media-organizer/media_organizer.py migrate --apply --yes` → 全自动(LLM 已全审过 dry-run)
+6. 完成后 LLM 提示「需要 trigger classification/rescan 让 NAS 重新刮削吗?」(走 MCP `link_folder_to_classification` 不需要,直接 rescan)
+
+**关键约束**:
+- 默认 dry-run,移动是物理破坏性操作
+- 目标路径前缀 `/zspace/extdev/` 一律跳过(只读外置设备)
+- `move_rules.target` 必须在 `libraries.name` 里(配置时校验)
+- 改源目录后 NAS 不会自动重扫,需要 LLM 调 classification/rescan
+- NAS API 不暴露 library↔path 的 binding(`/zvideo/classification/dirs` 不带 `classification_name`,`/zvideo/classification/list` 不带 `file_path[]`),所以**配置是规则唯一可靠来源**
+
+**为什么需要单独命令**: 场景 1-4 是「找出问题」(audit),场景 5 是「物理修复」(迁移)。两者抽象层级不同 — audit 操作 classification metadata,migrate 操作文件系统。合并到一个命令会让 audit 变慢且带副作用。
+
 ---
 
 ## 关键约束(必读)
@@ -124,6 +145,7 @@ description: Use when 用户想诊断极影视分类问题 — "我的影视库�
 - ❌ **type 字段完整语义** — 没文档,只能从抽样推断
 - ❌ **跳过合并 / 删除分类** — `classification/del` / `classification/editname` MCP 没暴露,要做先破
 - ❌ **分类下文件路径看不到** — randomlist 返回的 `file_path=""`(没填),所以无法从 collection 反查物理文件
+- ❌ **classification/dirs 不带 binding** — 返回路径但 `classification_name` 是空(`—`),`classification/list` 也不带 `file_path[]` 数组。Binding 是 write-only(`/zvideo/classification/increase`)。从 dirs 反查哪个路径属于哪个分类需要用户配置(`migration-rules.yaml`)
 
 ## 故障排查
 

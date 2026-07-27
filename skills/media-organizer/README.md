@@ -9,18 +9,20 @@ Claude Code skill,**只读**诊断 ZSpace NAS 极影视的"分类不规范"问�
 
 ```
 skills/media-organizer/
-├── SKILL.md             # LLM 读的工作流(触发词 + 4 命令 + 场景示例)
-├── media_organizer.py   # Python CLI:audit-classifications / sources / collections / all
+├── SKILL.md             # LLM 读的工作流(触发词 + 5 场景 + 命令 + 配置示例)
+├── media_organizer.py   # Python CLI:audit-* / migrate(6 子命令)
 ├── lib/
-│   └── nas_client.py    # 桥接层:从顶层 nas 包 import NasClient
+│   ├── nas_client.py    # 桥接层:从顶层 nas 包 import NasClient
+│   └── migration_rules.py  # 配置解析 + glob 匹配 + 路径反查(零依赖)
+├── migration-rules.yaml.example  # migrate 配置模板
 ├── tests/
-│   └── smoke.sh         # 自动化烟雾测试
+│   └── smoke.sh         # 自动化烟雾测试(15 check)
 └── README.md            # 这个文件
 ```
 
 跟 `label-manager` skill 一样复用顶层 `nas` 包的 `NasClient`(共享 RSA 登录 + cookie)。
 
-## 5 个命令
+## 6 个命令
 
 | 命令 | 输出 | 耗时(实测) |
 |------|------|------------|
@@ -29,6 +31,7 @@ skills/media-organizer/
 | `audit-collections --sample N` | 影片 type 分布 + 分类一致性 | ~ 2s × N 次 randomlist |
 | `suggest-moves --sample N` | **per-collection 挪分类建议**(标题/年份/评分/挪向) | ~ 2s × N 次 randomlist |
 | `audit-all` | 综合报告(头部摘要 + 5 section) | 上面总和 |
+| `migrate --config migration-rules.yaml [--apply]` | 按规则迁移错放文件(默认 dry-run) | 取决于扫描规模 |
 
 ## 关键设计:为什么只读
 
@@ -44,6 +47,7 @@ skills/media-organizer/
 | NAS 没"按分类列 collection"全量端点(`series/list` count=0) | 只能抽样,大分类可能漏 | `audit-collections --sample 12` 多采 |
 | type 字段完整语义没文档 | `type=999` 等值无法映射 | `--output` 看 JSON 原值 |
 | 影片 `file_path=""` 空 | 无法从 collection 反查物理文件 | 等 NAS 暴露 |
+| `classification/dirs` 不带 binding | 无法从 dirs 反查哪个路径属于哪个分类 | 用户配置 `migration-rules.yaml`(API 不暴露) |
 | rename 端点字段未破 | 不能脚本里重命名 | 用户手动 pcweb UI |
 
 ## 实测发现(NAS 当前状态,2026-07-01)
@@ -71,6 +75,13 @@ skills/media-organizer/
 .venv/bin/python skills/media-organizer/media_organizer.py audit-collections --sample 8
 .venv/bin/python skills/media-organizer/media_organizer.py suggest-moves --sample 30 --output /tmp/moves.json
 .venv/bin/python skills/media-organizer/media_organizer.py audit-all --sample 8 --suggest-sample 30 --output /tmp/audit.json
+
+# migrate(默认 dry-run,先看计划再 --apply)
+cp skills/media-organizer/migration-rules.yaml.example migration-rules.yaml
+vi migration-rules.yaml  # 编辑 libraries.expected_host_paths + move_rules
+.venv/bin/python skills/media-organizer/media_organizer.py migrate --config migration-rules.yaml --dry-run --output /tmp/plan.json
+# 审完计划后:
+.venv/bin/python skills/media-organizer/media_organizer.py migrate --config migration-rules.yaml --apply --yes
 
 # 烟雾测试
 bash skills/media-organizer/tests/smoke.sh
