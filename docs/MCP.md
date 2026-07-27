@@ -48,7 +48,7 @@
 
 ```bash
 NAS_HOST=... NAS_USER=... NAS_PASSWORD=... .venv/bin/python -m zspace.mcp_server
-# 看到日志 "89 tools registered" 即成功
+# 看到日志 "90 tools registered" 即成功
 ```
 
 ---
@@ -90,7 +90,7 @@ NAS_HOST=... NAS_USER=... NAS_PASSWORD=... .venv/bin/python -m zspace.mcp_server
 | 读 | 🌐 远程访问 | 4 | `proxy_login` `proxy_url_for_port` `proxy_fetch` `proxy_list_whitelist` |
 | 读 | 🔍 语义搜索 | 3 | `semantic_search` `reindex` `index_status` |
 | 写 | 📁 文件 | 7 | `mkdir` `rename` `move` `copy` `remove` `save_file_label` `delete_label` |
-| 写 | 🎬 影视 | 2 | `add_video_classification` `link_folder_to_classification` |
+| 写 | 🎬 影视 | 3 | `add_video_classification` `rename_video_classification` `link_folder_to_classification` |
 | 写 | 📒 记事本 | 9 | `notebook_new` `notebook_modify` `notebook_delete` `notebook_pin` `notebook_updatelabel` `notebook_movenotepad` `notebook_newclassify` `notebook_deleteclassify` `notebook_updateclassify` |
 
 > ⚠️ **写工具 18 个全部真落盘到 NAS**(MCP 客户端调用时会让用户 UI 批准)。
@@ -675,6 +675,16 @@ location=1 是保险箱备忘录,需要先开保险箱 — 这套 tool 全部用
 - **ID 不存在**:也直接拒绝,返回 `error: "classification_id=... 不存在"` + `hint: 调 list_video_classes 拿有效 ID`
 - **坑**:字段名 `file_path[]`(PHP 数组语法,带 `[]` 后缀),代码自动处理
 - **返回 `N120019`**:已经关联过,也算成功
+
+#### `rename_video_classification(classification_id, new_name)`
+
+⚠️ **写入**:重命名极影视分类。
+
+- **NAS 端点**:`POST /zvideo/classification/editname`
+- **参数**:
+  - `classification_id` (str,必填):分类 UUID
+  - `new_name` (str,必填):新名称,如 frds → 老友记
+- **返回** 200 即成功
 
 ### 5.3 📒 记事本 (9 个写 tool,⚠️ 真落盘)
 

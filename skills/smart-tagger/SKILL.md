@@ -9,19 +9,20 @@ description: Use when 用户想按文件内容(而非文件名)批量打标签 �
 
 ## 概述
 
-**前置**:先调 `nas-setup` skill 验证 NAS 登录 + RAG daemon 在线。如 RAG 不通,降级到文件名匹配。
+**强制前置**:先调 `nas-setup` skill → 调 `index_status` MCP tool 确认 RAG daemon 在线且已索引。
+如 `index_status` 返回 `chunks=0`,必须先 `reindex(scope="files", full=true)` 重建索引。
+**RAG 不通时拒绝执行**,不降级到文件名匹配。
 
-NAS 里 1000+ 文件,用户用自然语言描述要找什么(比如"一年级的课本"),Agent 调 **RAG 语义检索**(NAS docker daemon,bge-small-zh-v1.5,391 chunks)找到匹配文件,然后**批量打标签**。
-
-**RAG daemon 已上线**(`<nas_ip>:8000`,docker container nas-rag)。无需降级,直接搜。
+NAS 里 1000+ 文件,用户用自然语言描述要找什么(比如"一年级的课本"),Agent 调 **RAG 语义检索**(bge-small-zh-v1.5)找到匹配文件,然后**批量打标签**。
 
 **关键能力依赖**:
-- ✅ `semantic_search(query, scope, top_k)` MCP tool → POST NAS daemon /search
+- ✅ `index_status()` MCP tool — 确认索引状态(必须门控)
+- ✅ `semantic_search(query, scope, top_k)` MCP tool → POST RAG daemon /search
 - ✅ `save_file_label(label_names, paths)` MCP tool(批量打标)
 - ✅ `list_file_labels()` MCP tool(确认标签名)
-- ✅ `reindex(scope, full)` MCP tool(调 NAS daemon 重建索引)
+- ✅ `reindex(scope, full)` MCP tool(重建索引,需要时手动触发)
 
-2026-07-25 已实测验证:一年级教材 5 个 PDF + 二年级教材 4 个 PDF 打标成功。
+RAG 不会自动扫描 NAS 文件,需要手动 `reindex` 或 NAS 端 cron 定时触发。
 
 ---
 
@@ -37,7 +38,14 @@ NAS 里 1000+ 文件,用户用自然语言描述要找什么(比如"一年级的
    - 限定范围:`教材目录`(可推断路径,如 `/sata14/my/data/课程资料/`)
    - 标签名:`一年级`
 
-2. **调 RAG 语义检索**(关键词组合,scope=files):
+2. **RAG 门控**(必须):
+   ```
+   index_status()
+   ```
+   如果 `chunks==0` → 执行 `reindex(scope="files", full=true)` → 等 status 返回 chunks>0。
+   如果 `error` 或 daemon 不通 → 拒绝执行,提示用户先部署 rag-server docker。
+
+3. **调 RAG 语义检索**(关键词组合,scope=files):
    ```
    semantic_search(query="一年级教材 一年级课本 小学一年级", scope="files", top_k=30)
    ```

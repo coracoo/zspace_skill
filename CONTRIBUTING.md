@@ -61,7 +61,7 @@ async def my_new_tool(param: str) -> str:
 
 ```bash
 ./start.sh mcp-cfg  # 验证 MCP server 能启动
-python -c "from zspace.mcp_server import mcp; print(len(mcp._tool_manager._tools))"  # 应为 89
+python -c "from zspace.mcp_server import mcp; print(len(mcp._tool_manager._tools))"  # 应为 90
 curl http://localhost:15050/healthz  # 验证 dashboard
 ```
 

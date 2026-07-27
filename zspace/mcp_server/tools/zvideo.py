@@ -1,4 +1,4 @@
-"""极影视 tool 集合(8 个):6 读 + 2 写。
+"""极影视 tool 集合(9 个):6 读 + 3 写。
 
 源:mcp_server.py:610-696(读) + 1108-1166(写)
 """
@@ -94,7 +94,22 @@ async def list_video_dirs() -> str:
     return _to_json(await _main.nas.post("/zvideo/classification/dirs", {}))
 
 
-# ---- 极影视写(2,⚠️ 真实落盘)----
+# ---- 极影视写(3,⚠️ 真实落盘)----
+@mcp.tool()
+async def rename_video_classification(
+    classification_id: str, new_name: str
+) -> str:
+    """⚠️ 写入:重命名极影视分类(如 frds → 老友记)。
+
+    classification_id: 分类 ID(UUID,从 list_video_classes 拿)
+    new_name: 新名称
+    """
+    return _to_json(await _main.nas.post("/zvideo/classification/editname", {
+        "classification_id": classification_id,
+        "new_name": new_name,
+    }))
+
+
 @mcp.tool()
 async def add_video_classification(
     name: str, file_path: str = "", not_scrape: int = 1

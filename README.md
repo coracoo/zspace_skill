@@ -1,6 +1,6 @@
 # ZSpace NAS MCP
 
-89 个 MCP tool + 6 个 skill,让 Claude/Cursor 直接操作极空间 NAS。
+90 个 MCP tool + 6 个 skill,让 Claude/Cursor 直接操作极空间 NAS。
 
 ## 你只需要其中一部分
 
@@ -25,7 +25,7 @@ cp zspace/.env.example .env && vi .env     # 填 NAS_HOST/USER/PASSWORD
 
 # 3. 接入 Claude Code
 ./start.sh mcp-cfg                  # 打印配置 → 粘到 mcp.json
-# 重启 Claude Code,89 tool 自动出现
+# 重启 Claude Code,90 tool 自动出现
 ```
 
 首次验证: `python skills/nas-setup/scripts/check.py`
@@ -54,7 +54,7 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 
 | 组件 | 安装方式 | 用途 |
 |---|---|---|
-| MCP(必须) | `pip install -e .` | 89 tool,Claude Code 连 NAS |
+| MCP(必须) | `pip install -e .` | 90 tool,Claude Code 连 NAS |
 | Skill | 复制到 `skills/` | 6 个工作流,Agent 自动触发 |
 | RAG docker | `docker compose up -d` | 语义搜索,部署在 NAS 上 |
 | Dashboard | `./start.sh dashboard` | Web UI,iPhone 备忘录入口 |
@@ -70,7 +70,7 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 └──────────────────┬───────────────────────┘
                    ↓ MCP 协议(stdio,JSON-RPC 2.0)
 ┌─ MCP 层(zspace/mcp_server/) ────────────────────┐
-│ 89 个 tool(按域分文件)                    │  ← Claude Code mcp.json 配置后自动发现
+│ 90 个 tool(按域分文件)                    │  ← Claude Code mcp.json 配置后自动发现
 │ tools/{files,storage,zvideo,notebook,    │  ← 每个 tool = 1 个 NAS API 端点封装
 │        znetdisk,proxy,rag,...}           │
 └──────────────────┬───────────────────────┘
@@ -115,7 +115,7 @@ vi .env   # 填 NAS_HOST / NAS_USER / NAS_PASSWORD
 
 # 3. 接入 Claude Code(必须)
 ./start.sh mcp-cfg   # 打印配置片段,粘到 ~/.config/claude-code/mcp.json
-# 重启 Claude Code → 89 个 tool 自动出现
+# 重启 Claude Code → 90 个 tool 自动出现
 
 # 4. 首次验证
 python skills/nas-setup/scripts/check.py
@@ -190,11 +190,11 @@ zspace-mcp-poc/
 │
 ├── pyproject.toml             包定义(pip install -e .)
 ├── docs/API.md                 NAS 全端点速查
-├── docs/MCP.md                 89 tool 详细文档
+├── docs/MCP.md                 90 tool 详细文档
 └── start.sh                    一键启动(deps/mcp/dashboard/mcp-cfg)
 ```
 
-## MCP Tool 清单(89)
+## MCP Tool 清单(90)
 
 ### 文件 & 存储池 & 监控(20)
 
@@ -216,7 +216,7 @@ zspace-mcp-poc/
 | `copy` | 写 | 复制 |
 | `remove` | ⚠️ 删除 | 不可逆,不进回收站 |
 
-### 极影视(8)
+### 极影视(9)
 
 | Tool | 读/写 | 用途 |
 |---|---|---|
@@ -225,6 +225,7 @@ zspace-mcp-poc/
 | `list_video_dirs` | 读 | 源目录 |
 | `get_video_classification_state` | 读 | 单个分类状态 |
 | `add_video_classification` | 写 | 新建分类 |
+| `rename_video_classification` | 写 | 重命名分类(classification_id + new_name) |
 | `link_folder_to_classification` | 写 | 关联源目录(带 is_enable=0 拒绝) |
 
 ### 记事本(17)
@@ -351,7 +352,7 @@ REST API 详见 `rag-server/README.md`(端点表)。
 | 文档 | 内容 |
 |---|---|
 | `docs/API.md` | NAS 全端点速查(12 域,~900 行) |
-| `docs/MCP.md` | 89 tool 参数/返回/端点映射 |
+| `docs/MCP.md` | 90 tool 参数/返回/端点映射 |
 | `rag-server/README.md` | RAG REST 协议(端点表) |
 | `docs/iphone-shortcut.md` | iPhone Shortcut 配置图解 |
 
