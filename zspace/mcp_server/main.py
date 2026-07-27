@@ -12,15 +12,20 @@
 """
 import asyncio
 import logging
+import secrets
 import sys
 from typing import TYPE_CHECKING, Optional
 
+from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from nas import NasClient
 
 if TYPE_CHECKING:  # pragma: no cover
     from zspace.mcp_server.zenith import ZenithSession
+
+from zspace.mcp_server.auth import StaticTokenVerifier  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -77,10 +82,60 @@ async def _startup():
         raise
 
 
-def main():
+def main(
+    transport: str = "stdio",
+    host: str = "127.0.0.1",
+    port: Optional[int] = None,
+) -> None:
+    """启动 MCP server。transport ∈ {"stdio", "sse", "streamable-http"}。
+
+    HTTP 路径(streamable-http)需要 `MCP_HTTP_TOKEN` env:没设就自动生成
+    `secrets.token_hex(32)` 并 log 提示用户钉进 .env。同一进程同一 FastMCP 实例,
+    通过 mutate `mcp.settings` / `mcp._token_verifier` 切换 transport 配置。
+    """
+    if transport == "streamable-http":
+        _configure_http(mcp, host=host, port=port or 8765)
+
     asyncio.run(_startup())
-    log.info("MCP server 'zspace-nas' starting, %d tools registered", len(mcp._tool_manager._tools))
-    mcp.run()
+    log.info(
+        "MCP server 'zspace-nas' starting, transport=%s, %d tools registered",
+        transport, len(mcp._tool_manager._tools),
+    )
+    mcp.run(transport=transport)  # host/port 已 mutate 进 settings
+
+
+def _configure_http(mcp_instance: FastMCP, host: str, port: int) -> None:
+    """为 HTTP transport 注入鉴权 + LAN-friendly transport_security。
+
+    在 tool imports 之后、`mcp.run()` 之前调用。FastMCP 在 run_streamable_http_async
+    里才读 settings.host/port 与 self._token_verifier,所以 mutate 安全。
+    """
+    import os
+
+    token = os.environ.get("MCP_HTTP_TOKEN", "").strip()
+    if not token:
+        token = secrets.token_hex(32)
+        log.warning(
+            "MCP_HTTP_TOKEN 未设置,自动生成一次性 token: %s\n"
+            "  → 想钉死请把这一行复制进 .env: MCP_HTTP_TOKEN=%s",
+            token, token,
+        )
+    else:
+        log.info("MCP_HTTP_TOKEN 已设置,长度=%d 字符", len(token))
+
+    mcp_instance.settings.host = host
+    mcp_instance.settings.port = port
+    mcp_instance.settings.auth = AuthSettings(
+        issuer_url="http://placeholder.invalid",
+        resource_server_url=f"http://placeholder.invalid:{port}",
+        required_scopes=[],
+    )
+    mcp_instance._token_verifier = StaticTokenVerifier(token)
+    mcp_instance.settings.transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=False,  # LAN 必须关
+        allowed_hosts=["*"],
+        allowed_origins=["*"],
+    )
 
 
 if __name__ == "__main__":
