@@ -38,7 +38,7 @@ async def my_new_tool(param: str) -> str:
 
 1. 创建 `skills/<name>/SKILL.md`(frontmatter 含 `name` + `description` 触发词)
 2. (可选)加 Python 脚本做机械活,写操作统一走 MCP tool
-3. 参考 `smart-tagger` 或 `media-organizer` 的格式
+3. 参考 `label-manager` 或 `media-organizer` 的格式
 
 ### 加新的 NAS API(逆向)
 

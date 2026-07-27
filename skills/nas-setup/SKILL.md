@@ -59,7 +59,7 @@ Agent: [重跑 check.py]
    
    或:
    ❌ NAS 登录: N001414 短信验证 — 把真实 device_id 填入 .env
-   ⚠️ RAG daemon:未运行 — smart-tagger 降级到文件名匹配
+   ⚠️ RAG daemon:未运行 — label-manager scan 按文件名匹配
    ```
 
 ## 跟其他 skill 的关系

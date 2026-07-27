@@ -222,7 +222,6 @@ def main():
             print(f"✅ RAG daemon: {rag['url']} ({rag['model']}, {rag['chunks']} chunks)")
         else:
             print(f"⚠️  RAG daemon: {rag['url']} 不通")
-            print(f"   → smart-tagger 降级到文件名匹配")
             print(f"   → 启动: cd rag-server && docker compose up -d")
         print()
 

@@ -1,18 +1,26 @@
 ---
 name: label-manager
-description: 管理和查询 ZSpace NAS 标签(打标、批量打标、按标签找文件、新建/删除标签)。
-  触发词:打标签、给 XX 打 XX 标签、按标签找、找所有带 XX 标签的文件、新建标签、删除标签。
-  不适用:文件重命名(用 MCP file_rename)、笔记搜索(用 MCP notebook_search)、文件内容搜索。
+description: 管理和查询 ZSpace NAS 标签——按文件名打标(label-manager scan)、按文件内容语义搜打标(RAG)、按标签找文件、新建/删除标签。
+  触发词:打标签、给 XX 打 XX 标签、按标签找、找所有带 XX 标签的文件、新建标签、删除标签、给 XX 内容的文件打标签、智能打标、语义打标、给一年级的文件打《一年级》标签、给课本打标签、按内容找文件打标、给所有 XX 内容的文件批量打标。
+  不适用:文件重命名(用 MCP file_rename)、笔记搜索(用 MCP notebook_search)。
 ---
 
-# Label Manager — NAS 标签管理工作流
+# Label Manager — NAS 标签全生命周期
 
 ## 概述
 
-通过组合 NAS MCP tool + `label_manager.py` 脚本,完成标签的**全生命周期**管理:
+NAS 标签的**全生命周期**管理——两种发现方式,同一入口:
 
-| MCP tool(原子) | 用途 |
-|----------------|------|
+| 发现方式 | 用哪个命令 | 适合 |
+|---------|-----------|------|
+| **按文件名/扩展名** | `label_manager.py scan` + `find-by-label` | 目录递归、批量、精确匹配 |
+| **按文件内容(RAG 语义)** | 纯 LLM 编排,`semantic_search` → `save_file_label` | 自然语言描述、不靠文件名 |
+
+最终都走 `save_file_label` MCP tool 落盘。
+
+**前置**:`nas-setup` skill(验证 NAS 登录)。**RAG 场景额外需要** `rag-manager`(门控)。
+
+## MCP tool 依赖
 | `list_file_labels` | 列出所有标签 |
 | `save_file_label(label_names, paths)` | 打标签(覆盖式,**会自动创建新标签名**) |
 | `delete_label(label_names)` | 删除标签(从所有文件上**彻底移除**) |
@@ -163,25 +171,44 @@ description: 管理和查询 ZSpace NAS 标签(打标、批量打标、按标签
 
 - **多轮打标**:用户连续说"再给它们打 XX 标签",Agent 维护上下文
 - **冲突检测**:打标前检查文件已有标签,提示"已有 Y 标签,要覆盖吗"
-- **RAG 联动**:见下方「跟 smart-tagger 协作」
 
 ---
 
-## 跟 smart-tagger 协作(案例三)
+### 场景 6:用户说"给教材目录下所有一年级课本打《一年级》标签"(RAG 语义搜)
 
-label-manager 是**标签管理的底层工具**(标签 CRUD + 按元数据找文件)。
-`smart-tagger` skill 是上层组合:**按内容找**(RAG 语义检索) + **批量打标**。
+**步骤**:
+1. **拆解需求**:内容关键词、限定范围、标签名
+2. **RAG 门控**:加载 `rag-manager` skill → index_status → chunks>0 通过,不通拒绝
+3. `semantic_search`(query=关键词,scope="files",top_k=30) → 命中清单
+4. **Agent 过滤**:distance<1.0 可靠,>1.2 误报
+5. `list_file_labels()` 确认标签名
+6. `save_file_label(label_names="标签", paths="...")` — MCP 弹 UI,≤50 个/批
 
-**怎么选**:
+### 场景 7:文件太大没进 RAG 索引(降级)
 
-| 用户需求 | 走哪个 skill |
-|---|---|
-| 给 .yml 文件打 docker 标签(按扩展名) | **label-manager**(本 skill)场景 2 |
-| 给"一年级教材"打标签(按内容) | **smart-tagger**(走 RAG) |
-| 给 /特定目录/ 下所有文件打标 | **label-manager**(本 skill) |
-| 找所有 docker 标签的文件(反向查) | **label-manager**(本 skill) |
-| 新建/删除标签 | **label-manager**(本 skill) |
+文件 > `RAG_MAX_FILE_SIZE_KB`(默认 100KB)不进索引。降级:**文件名匹配**(场景 2 scan)。
 
-**smart-tagger 找到文件后,最终也调本 skill 的 `save_file_label`** — 所以本 skill 是打标的唯一入口(MCP 弹 UI 批准)。
+### 场景 8:多标签 + 目录双确认
 
-详见 `skills/smart-tagger/SKILL.md`。
+`list_files`(范围) + `semantic_search`(关键词) → Agent 取交集 → `save_file_label`
+
+---
+
+## RAG 关键约束
+
+- 写死走 MCP(save_file_label 弹 UI),**不自动批量打**
+- save_file_label 是覆盖式,先 `file_info` 看现有标签
+- scope=files=内容,不是文件名
+- RAG 不通时**拒绝**(不降级),让用户先部署/重启 rag-server
+- 一次 ≤ 50 个路径
+
+## 跟其他 skill 的分工
+
+| 场景 | 走哪 |
+|------|------|
+| 按文件名/扩展名打标 | label-manager scan(本 skill) |
+| 按内容语义搜打标 | label-manager 场景 6-8(本 skill) |
+| RAG 索引管理 | rag-manager |
+| 按标签反向查文件 | label-manager find-by-label |
+| 新建/删除标签 | label-manager |
+| 找重复/孤儿文件 | file-organizer |

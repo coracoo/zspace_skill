@@ -1,8 +1,8 @@
 ---
 name: rag-manager
-description: Use when 需要管理 RAG 语义搜索的索引生命周期 — 检查索引状态、重建索引、增量索引、移除索引、配置扫描范围。smart-tagger 和其他 RAG 依赖 skill 的前置门控。
+description: Use when 需要管理 RAG 语义搜索的索引生命周期 — 检查索引状态、重建索引、增量索引、移除索引、配置扫描范围。label-manager（RAG 场景） 的前置门控。
   触发词:RAG 索引、语义搜索索引、重建索引、索引状态、重新索引、更新索引、reindex、NAS 文件索引、搜索索引管理、索引文件更新。
-  不适用:语义搜索本身(用 MCP semantic_search tool)、文件打标签(用 label-manager / smart-tagger)、文件审计(用 file-organizer)。
+  不适用:语义搜索本身(用 MCP semantic_search tool)、文件打标签(用 label-manager)、文件审计(用 file-organizer)。
 ---
 
 # RAG Manager — 语义搜索索引管理
@@ -24,9 +24,9 @@ RAG **不会**自动扫描 NAS 文件。需要手动 `reindex` 或 NAS cron 定�
 
 ## 工作流
 
-### 场景 1:门控检查(smart-tagger 等依赖 skill 的前置)
+### 场景 1:门控检查(label-manager RAG 的前置)
 
-**触发**:smart-tagger 或任何 RAG 依赖 skill 被加载时,先调 rag-manager 做门控。
+**触发**:label-manager 的 RAG 依赖 skill 被加载时,先调 rag-manager 做门控。
 
 **步骤**:
 1. 调 `index_status()` → 拿 `chunks`、`model`、`db_size`
@@ -63,17 +63,17 @@ RAG **不会**自动扫描 NAS 文件。需要手动 `reindex` 或 NAS cron 定�
 
 ---
 
-## 跟 smart-tagger 的分工
+## 跟 label-manager 的 RAG 分工
 
 | 能力 | 用哪个 |
 |------|--------|
 | 索引状态门控 | rag-manager |
 | 重建索引 | rag-manager |
-| 内容语义搜索 | smart-tagger |
-| 搜索结果打标签 | smart-tagger → MCP save_file_label |
-| 文件内容浏览 | smart-tagger |
+| 内容语义搜索 | label-manager（RAG 场景）|
+| 搜索结果打标签 | label-manager → MCP save_file_label |
+| 文件内容浏览 | label-manager（RAG 场景）|
 
-smart-tagger 场景 1 步骤 2 改为:**加载 rag-manager skill → 门控检查通过 → 继续**。
+label-manager 场景 6 步骤 2 改为:**加载 rag-manager skill → 门控检查通过 → 继续**。
 
 ---
 
