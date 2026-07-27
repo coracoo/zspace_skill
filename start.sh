@@ -126,8 +126,15 @@ cmd_mcp_cfg() {
   ensure_venv
   ensure_env
   echo "${C_BOLD}⚠️  以下输出含明文 NAS_PASSWORD / KEY_SSH,注意终端记录与截图安全!${C_OFF}" >&2
+
+  # Read or auto-gen token (must match what main.py would do)
+  local http_token="${MCP_HTTP_TOKEN:-}"
+  if [[ -z "$http_token" ]]; then
+    http_token="$(.venv/bin/python -c 'import secrets; print(secrets.token_hex(32))' 2>/dev/null || echo "<run ./start.sh mcp-http once to auto-generate>")"
+  fi
+
   cat <<EOF
-${C_BOLD}Claude Code 配置(~/.config/claude-code/mcp.json):${C_OFF}
+${C_BOLD}===== stdio transport(本地 Claude Code 用) =====${C_OFF}
 {
   "mcpServers": {
     "zspace-nas": {
@@ -144,9 +151,24 @@ ${C_BOLD}Claude Code 配置(~/.config/claude-code/mcp.json):${C_OFF}
     }
   }
 }
+
+${C_BOLD}===== HTTP transport(局域网/远程 MCP 客户端用) =====${C_OFF}
+  前提:NAS 机器已跑 ${C_GREEN}./start.sh mcp-http${C_OFF},端口 8765,鉴权见下。
+{
+  "mcpServers": {
+    "zspace-nas-http": {
+      "url": "http://${NAS_HOST}:8765/mcp",
+      "headers": {
+        "Authorization": "Bearer $http_token"
+      }
+    }
+  }
+}
+
+${C_BOLD}Cursor / Claude Desktop:${C_OFF} 同样格式,字段名 mcpServers / mcp.json。
+${C_BOLD}HTTP token 说明:${C_OFF} 上面展示的是 \$MCP_HTTP_TOKEN 的当前值(或一次性的占位 token)。
+        想钉死: 在 .env 里加 MCP_HTTP_TOKEN=<你自己生成的长随机串>,重新跑 mcp-cfg。
 EOF
-  echo
-  echo "${C_BOLD}Cursor / Claude Desktop:${C_OFF} 同样格式,字段名 mcpServers / mcp.json。"
 }
 
 # ---- 子命令: env ----
@@ -187,7 +209,8 @@ ${C_BOLD}ZSpace NAS PoC + MCP 启动脚本${C_OFF}
 命令:
   ${C_GREEN}dashboard${C_OFF}   启动 Web dashboard(后台,http://localhost:15050)
   ${C_GREEN}mcp${C_OFF}         启动 MCP server(stdio 前台,给 Claude Code 用)
-  ${C_GREEN}mcp-cfg${C_OFF}     打印 Claude Code 的 mcp.json 配置片段
+  ${C_GREEN}mcp-http${C_OFF}    启动 MCP HTTP server(端口 8765,Bearer 鉴权,给局域网/远程 MCP 客户端用)
+  ${C_GREEN}mcp-cfg${C_OFF}     打印 Claude Code 的 mcp.json 配置片段(stdio + HTTP 两段)
   ${C_GREEN}env${C_OFF}         查看当前生效的环境变量(密码遮蔽)
   ${C_GREEN}deps${C_OFF}        安装/更新 Python 依赖
   ${C_GREEN}help${C_OFF}        显示本帮助
@@ -201,6 +224,20 @@ ${C_BOLD}ZSpace NAS PoC + MCP 启动脚本${C_OFF}
 EOF
 }
 
+# ---- 子命令: mcp-http ----
+cmd_mcp_http() {
+  ensure_venv
+  ensure_env
+  info "启动 MCP HTTP server(streamable-http,bind 0.0.0.0:8765,Bearer 鉴权)"
+  echo "  按 Ctrl+C 退出"
+  echo "  URL:       http://<nas_ip>:8765/mcp"
+  echo "  鉴权:      Authorization: Bearer \$MCP_HTTP_TOKEN"
+  echo "  留空 env → 首次启动自动生成,打印到 stderr,钉进 .env 复用"
+  echo "  日志走 stderr"
+  echo
+  exec "$PY" -m zspace.mcp_server --http
+}
+
 # ---- 入口 ----
 cmd="${1:-help}"
 shift || true
@@ -208,6 +245,7 @@ shift || true
 case "$cmd" in
   dashboard)  cmd_dashboard "$@" ;;
   mcp)        cmd_mcp "$@" ;;
+  mcp-http)   cmd_mcp_http "$@" ;;
   mcp-cfg)    cmd_mcp_cfg "$@" ;;
   env)        cmd_env "$@" ;;
   deps)       cmd_deps "$@" ;;
