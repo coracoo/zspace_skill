@@ -38,12 +38,7 @@ RAG 不会自动扫描 NAS 文件,需要手动 `reindex` 或 NAS 端 cron 定时
    - 限定范围:`教材目录`(可推断路径,如 `/sata14/my/data/课程资料/`)
    - 标签名:`一年级`
 
-2. **RAG 门控**(必须):
-   ```
-   index_status()
-   ```
-   如果 `chunks==0` → 执行 `reindex(scope="files", full=true)` → 等 status 返回 chunks>0。
-   如果 `error` 或 daemon 不通 → 拒绝执行,提示用户先部署 rag-server docker。
+2. **RAG 门控**:加载 `rag-manager` skill → 门控检查(index_status → chunks>0 即通过)。RAG 不通则拒绝。
 
 3. **调 RAG 语义检索**(关键词组合,scope=files):
    ```

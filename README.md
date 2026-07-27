@@ -1,6 +1,6 @@
 # ZSpace NAS MCP
 
-90 个 MCP tool + 6 个 skill,让 Claude/Cursor 直接操作极空间 NAS。
+90 个 MCP tool + 7 个 skill,让 Claude/Cursor 直接操作极空间 NAS。
 
 ## 你只需要其中一部分
 
@@ -40,7 +40,7 @@ cp -r skills/smart-tagger ~/your-project/skills/
 ```
 
 skill 在 `skills/` 目录下,Claude Code 在该目录启动时自动发现。
-当前 6 个 skill: `nas-setup`(前置) `smart-tagger` `media-organizer` `ios-memo-bak` `label-manager` `file-organizer`
+当前 7 个 skill: `nas-setup`(前置) `rag-manager`(RAG管理) `smart-tagger` `media-organizer` `ios-memo-bak` `label-manager` `file-organizer`
 
 ## RAG 用户(Docker 部署到 NAS)
 
@@ -55,7 +55,7 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 | 组件 | 安装方式 | 用途 |
 |---|---|---|
 | MCP(必须) | `pip install -e .` | 90 tool,Claude Code 连 NAS |
-| Skill | 复制到 `skills/` | 6 个工作流,Agent 自动触发 |
+| Skill | 复制到 `skills/` | 7 个工作流,Agent 自动触发 |
 | RAG docker | `docker compose up -d` | 语义搜索,部署在 NAS 上 |
 | Dashboard | `./start.sh dashboard` | Web UI,iPhone 备忘录入口 |
 | MCP HTTP transport | `./start.sh mcp-http` | 局域网/远程 MCP 客户端,Bearer 鉴权,端口 8765 |
@@ -65,7 +65,7 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 用户对 Claude Code 说话                    ← 自然语言
         ↓
 ┌─ Skill 层(skills/) ──────────────┐
-│ nas-setup / smart-tagger / media-organizer│  ← LLM 触发词 → 自动加载 SKILL.md
+│ nas-setup / rag-manager / smart-tagger / media-organizer│  ← LLM 触发词 → 自动加载 SKILL.md
 │ ios-memo-bak / label-manager / file-org  │  ← 组合多个 MCP tool 完成复杂流程
 └──────────────────┬───────────────────────┘
                    ↓ MCP 协议(stdio,JSON-RPC 2.0)
@@ -180,8 +180,9 @@ zspace-mcp-poc/
 │   ├── Dockerfile + docker-compose.yml
 │   └── README.md           REST 协议(端点表)
 │
-├── skills/       6 个自动化 skill
+├── skills/       7 个自动化 skill
 │   ├── nas-setup/       前置:验证 env/登录/可选组件
+│   ├── rag-manager/     RAG 语义搜索索引管理(门控/重建/增量)
 │   ├── ios-memo-bak/    iPhone 备忘录 → 极空间记事本
 │   ├── media-organizer/ 极影视分类审计
 │   ├── smart-tagger/    RAG 搜索基础上的批量文件标签管理
@@ -281,6 +282,7 @@ zspace-mcp-poc/
 | Skill | 触发词 | 用途 |
 |---|---|---|
 | `nas-setup` | 首次配置、验证连接 | 前置:验证 env/登录/可选组件(RAG) |
+| `rag-manager` | RAG 索引、reindex | RAG 语义搜索索引生命周期管理 |
 | `ios-memo-bak` | iPhone 备忘录同步 | 一键配置 iPhone Shortcut → NAS 记事本 |
 | `media-organizer` | 极影视整理、frds 拆分 | 只读审计分类/源目录/影片抽样 |
 | `smart-tagger` | 给 XX 内容打标签 | RAG 搜 → 批量 save_file_label |
