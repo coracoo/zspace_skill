@@ -901,3 +901,45 @@ NAS 跑的是 **N150 CPU**(低功耗)+ 96 个服务。**并发请求会卡死宿
 - **`app/`** — Dashboard FastAPI 实现(`app/routes/notebook.py` 有 24 个 `/action/notebook-*` 写测试桩)
 - **`templates/tab_*.html`** — Dashboard 5 个 tab(总览/存储池/极影视/记事本/写测试)
 - **`mcp_server/`** — 本文档对应的 MCP 实现(按域拆分成 `tools/*.py`)
+
+---
+
+## 十、HTTP Transport (LAN / remote clients)
+
+stdio 只服务本机 MCP 客户端(本地 Claude Code)。局域网/远程场景(例如 macbook 的 Claude Code 连 NAS 上的 MCP server),用 HTTP transport。
+
+### 启动
+
+```bash
+./start.sh mcp-http
+```
+
+- bind `0.0.0.0:8765`,端点 `/mcp`
+- 鉴权:`Authorization: Bearer $MCP_HTTP_TOKEN`
+- 留空 `MCP_HTTP_TOKEN` env → 首次启动自动生成 `secrets.token_hex(32)` 并打印到 stderr。复制到 `.env` 钉死复用。
+
+### mcp.json 配置
+
+```json
+{
+  "mcpServers": {
+    "zspace-nas-http": {
+      "url": "http://<nas_ip>:8765/mcp",
+      "headers": {
+        "Authorization": "Bearer <MCP_HTTP_TOKEN from .env>"
+      }
+    }
+  }
+}
+```
+
+打印本地可用的两段 mcp.json 片段(同时包含 stdio 和 HTTP):
+```bash
+./start.sh mcp-cfg
+```
+
+### 安全注意
+
+- HTTP transport 是 **明文 + 单一共享 token**,只适合可信局域网。
+- 想暴露到公网:套反向代理(Caddy/nginx)加 TLS,或先做 SSH 隧道。
+- 当前 `transport_security` 设为 `allowed_hosts=["*"]` / `allowed_origins=["*"]` 以兼容 LAN 客户端,等同不防 CSRF/DNS rebinding —— 不要直接暴露到公网。

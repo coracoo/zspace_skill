@@ -58,6 +58,7 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 | Skill | 复制到 `skills/` | 6 个工作流,Agent 自动触发 |
 | RAG docker | `docker compose up -d` | 语义搜索,部署在 NAS 上 |
 | Dashboard | `./start.sh dashboard` | Web UI,iPhone 备忘录入口 |
+| MCP HTTP transport | `./start.sh mcp-http` | 局域网/远程 MCP 客户端,Bearer 鉴权,端口 8765 |
 | 百度网盘 | `zspace/scripts/netdisk_login.py` | OAuth 登录后再用 28 个 znetdisk tool |
 
 ```
@@ -96,6 +97,7 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 | `nas-setup` skill | ✅ 推荐 | 首次跑,验证 env + 登录 + 可选组件 |
 | `rag-server/` docker | 可选 | RAG 语义搜索。不装也能用 86 个 tool,只是 semantic_search 不可用 |
 | `dashboard/` Dashboard | 可选 | Web 管理界面(iPhone 备忘录入口等) |
+| MCP HTTP transport | 可选 | `./start.sh mcp-http`,局域网/远程 MCP 客户端用,端口 8765 + Bearer |
 | 百度网盘 OAuth | 可选 | 28 个 znetdisk tool 需要先登录 |
 
 ## 安装
@@ -301,10 +303,18 @@ zspace-mcp-poc/
         "NAS_PASSWORD": "<password>",
         "NAS_DEVICE_ID": "<32 hex>"
       }
+    },
+    "zspace-nas-http": {
+      "url": "http://192.168.x.x:8765/mcp",
+      "headers": {
+        "Authorization": "Bearer <MCP_HTTP_TOKEN from NAS .env>"
+      }
     }
   }
 }
 ```
+
+(本地 Claude Code 用 `zspace-nas` stdio 条目;局域网/远程 MCP 客户端用 `zspace-nas-http` HTTP 条目,两个互不干扰,NAS 端跑 `./start.sh mcp-http` 后启用)
 
 ### 环境变量
 
