@@ -46,13 +46,13 @@ skills/media-organizer/
 |-----|------|------|
 | NAS 没"按分类列 collection"全量端点(`series/list` count=0) | 只能抽样,大分类可能漏 | `audit-collections --sample 12` 多采 |
 | type 字段完整语义没文档 | `type=999` 等值无法映射 | `--output` 看 JSON 原值 |
-| 影片 `file_path=""` 空 | 无法从 collection 反查物理文件 | 等 NAS 暴露 |
+| 影片 `file_path=""` 空 | 无法从 collection 反查物理文件 | NAS 不暴露此字段 |
 | `classification/dirs` 不带 binding | 无法从 dirs 反查哪个路径属于哪个分类 | 用户配置 `migration-rules.yaml`(API 不暴露) |
 | rename 端点字段未破 | 不能脚本里重命名 | 用户手动 pcweb UI |
 
-## 发现(2026-07)
+## 已知问题示例
 
-跑 `audit-all --sample 6` 报告(节选):
+跑 `audit-all --sample 6` 输出(节选):
 ```
 ⚠️ 发现 6 类问题:
   - 重名分类 2 组(电影、电视剧)
@@ -64,13 +64,13 @@ skills/media-organizer/
 
 'frds' = 69 部(电影×36 + 电视剧×33)
 ```
-用户 1459 部影片里 1229 部塞在 frds(疑似"老友记"分类)里,实际有电影 + 电视剧混着。
+(1459 部影片中 1229 部在 frds,实为电影+电视剧混合)
 
-## 发现(2026-07-27,migrate)
+## CIFS 网络挂载
 
-- **`/zspace/extdev/` 不是外置设备**:SSH mount 证实是 CIFS/SMB 网络挂载(源 192.168.0.118),NAS API 实测可写
-- **`/v2/file/move` 跨 CIFS→本地是真 move**(源路径被删,非 copy)。之前误判 copy 是因为 **SMB 元数据缓存延迟**——move 后立即查两边都 200,几分钟后源端才变成 N001315
-- **migrate 端到端测试通过**:scan → plan → apply → cleanup 全链路 OK(SMB→本地 rename 成功)
+`/zspace/extdev/*` 是 CIFS/SMB 网络挂载(源 192.168.0.118),NAS API 可写。
+
+`/v2/file/move` 跨 CIFS→本地是真 move(源被删)。**注意**:move 后 SMB 元数据缓存有延迟,立即查两端都会返回 200,等 1-2 分钟源端才变 N001315。
 
 ## 测试
 

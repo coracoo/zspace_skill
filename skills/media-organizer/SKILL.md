@@ -111,8 +111,8 @@ description: Use when 用户想诊断极影视分类问题 — "我的影视库�
 2. **修复走 MCP tool** — 合并/移除/重命名 用现有的 MCP `add_video_classification` / `link_folder_to_classification`,LLM 弹 UI 让用户批
 3. **NAS 没"按分类列 collection"全量端点** — `series/list` count=0 已知 bug,只能 randomlist 抽样
 4. **采样覆盖有限** — `randomlist` 每次 12 部,理论最多覆盖 ~150 部(8 次 + 去重),对于 1459 总数是 ~10% 抽样
-5. **type 字段语义** — type=100 电影、200 电视剧、300 综艺/其他(从抽样推断,可能有未列出的值)
-6. **路径权限** — `/zspace/extdev/...` 是 CIFS 网络挂载(SSH mount 查看证实),NAS API 实测可写,不走"外置设备只读"假设
+5. **type 字段语义** — type=100 电影、200 电视剧、300 综艺/其他。有未列出的值(type=999 等),遇未知值用 `--output` 看 JSON 原值
+6. **路径权限** — `/zspace/extdev/...` 是 CIFS 网络挂载(source 192.168.0.118),NAS API 可写
 7. **系统分类重命名/合并** — 系统分类(`is_system=1`)只能由 NAS 端处理,用户无法修改
 
 ---
