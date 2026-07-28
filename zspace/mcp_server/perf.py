@@ -20,6 +20,7 @@ NAS_HOST = os.environ.get("NAS_HOST", "")
 NAS_USER = os.environ.get("NAS_USER", "")
 NAS_SSH_PORT = os.environ.get("NAS_SSH_PORT", "57922")
 KEY_SSH = os.environ.get("KEY_SSH", "")
+NAS_SSH_KEY = os.environ.get("NAS_SSH_KEY", "")
 
 
 def _to_json(obj: Any) -> str:
@@ -111,9 +112,13 @@ def _parse_perf(text: str) -> dict:
 
 
 def _ssh_perf() -> dict:
-    """一次 SSH 抓全套性能指标"""
-    if not KEY_SSH:
-        return {"error": "KEY_SSH env not set; perf tool disabled"}
+    """一次 SSH 抓全套性能指标
+
+    认证优先级：NAS_SSH_KEY(私钥路径) > KEY_SSH(密码+sshpass)。
+    私钥方式不依赖 sshpass，也不会让密码出现在进程列表里。
+    """
+    if not NAS_SSH_KEY and not KEY_SSH:
+        return {"error": "NAS_SSH_KEY / KEY_SSH env not set; perf tool disabled"}
     cmd = (
         "cat /proc/loadavg; "
         "echo '=== CPU ==='; head -1 /proc/stat; "
@@ -125,16 +130,22 @@ def _ssh_perf() -> dict:
         "echo '=== TOP MEM ==='; ps -eo pid,pcpu,pmem,rss,comm --sort=-rss --no-headers | head -8"
     )
     try:
-        r = subprocess.run(
-            ["sshpass", "-p", KEY_SSH, "ssh", "-o", "ConnectTimeout=5",
-             "-o", "StrictHostKeyChecking=accept-new",
-             "-p", NAS_SSH_PORT, f"{NAS_USER}@{NAS_HOST}", cmd],
-            capture_output=True, text=True, timeout=10,
-        )
+        if NAS_SSH_KEY:
+            argv = ["ssh", "-i", NAS_SSH_KEY,
+                    "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",
+                    "-o", "ConnectTimeout=5",
+                    "-o", "StrictHostKeyChecking=accept-new",
+                    "-p", NAS_SSH_PORT, f"{NAS_USER}@{NAS_HOST}", cmd]
+        else:
+            argv = ["sshpass", "-p", KEY_SSH, "ssh", "-o", "ConnectTimeout=5",
+                    "-o", "StrictHostKeyChecking=accept-new",
+                    "-p", NAS_SSH_PORT, f"{NAS_USER}@{NAS_HOST}", cmd]
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=10)
     except subprocess.TimeoutExpired:
         return {"error": "ssh timeout"}
-    except FileNotFoundError:
-        return {"error": "sshpass not installed"}
+    except FileNotFoundError as e:
+        missing = "ssh" if NAS_SSH_KEY else "sshpass"
+        return {"error": f"{missing} not installed ({e})"}
     # 把 LOAD 行也带个 section 头方便 parser
     return _parse_perf("=== LOAD ===\n" + r.stdout)
 
