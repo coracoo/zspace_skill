@@ -78,8 +78,14 @@ async def _startup():
                  zenith._cookie_header.count(";") + 1 if zenith._cookie_header else 0,
                  bool(ZENITH_COOKIE_EXTRA))
     except Exception as e:
-        log.error("startup login failed: %s", e)
-        raise
+        # 不要让登录失败杀掉整个 server：stdio 场景下进程直接退出，
+        # 用户连 N001414(新设备验证) 的引导信息都看不到，MCP 宿主只会报"连接失败"。
+        # 保持运行——tools 都是 lazy-login（get/post 内未登录先 login），
+        # 首次调用会重试并把 N001414 等错误作为 tool 结果返回给 agent，
+        # 用户反而能在客户端里看到完整的绑定引导。
+        log.warning(
+            "startup login failed (server keeps running; first tool call will retry): %s", e
+        )
 
 
 def main(
