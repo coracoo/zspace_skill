@@ -1,6 +1,6 @@
 # ZSpace NAS MCP
 
-90 个 MCP tool + 6 个 skill,让 Claude/Cursor 直接操作极空间 NAS。
+90 个 MCP tool + 7 个 skill,让 Claude/Cursor 直接操作极空间 NAS。
 
 ## 你只需要其中一部分
 
@@ -39,7 +39,7 @@ cp -r skills/nas-setup ~/your-project/skills/
 ```
 
 skill 在 `skills/` 目录下,Claude Code 在该目录启动时自动发现。
-当前 6 个 skill: `nas-setup`(前置) `rag-manager`(RAG管理) `media-organizer` `ios-memo-bak` `label-manager` `file-organizer`
+当前 7 个 skill: `nas-setup`(前置) `rag-manager`(RAG管理) `media-organizer` `media-naming` `ios-memo-bak` `label-manager` `file-organizer`
 
 ## RAG 用户(Docker 部署到 NAS)
 
@@ -54,7 +54,7 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
 | 组件 | 安装方式 | 用途 |
 |---|---|---|
 | MCP(必须) | `pip install -e .` | 90 tool,Claude Code 连 NAS |
-| Skill | 复制到 `skills/` | 6 个工作流,Agent 自动触发 |
+| Skill | 复制到 `skills/` | 7 个工作流,Agent 自动触发 |
 | RAG docker | `docker compose up -d` | 语义搜索,部署在 NAS 上 |
 | Dashboard | `./start.sh dashboard` | Web UI,iPhone 备忘录入口 |
 | MCP HTTP transport | `./start.sh mcp-http` | 局域网/远程 MCP 客户端,Bearer 鉴权,端口 8765 |
@@ -65,7 +65,8 @@ docker compose up -d                # image: coracoo/cherry:nas_rag
         ↓
 ┌─ Skill 层(skills/) ──────────────┐
 │ nas-setup / rag-manager / media-organizer│  ← LLM 触发词 → 自动加载 SKILL.md
-│ ios-memo-bak / label-manager / file-org  │  ← 组合多个 MCP tool 完成复杂流程
+│ media-naming / ios-memo-bak / label-mgr  │  ← 组合多个 MCP tool 完成复杂流程
+│ file-organizer                           │
 └──────────────────┬───────────────────────┘
                    ↓ MCP 协议(stdio,JSON-RPC 2.0)
 ┌─ MCP 层(zspace/mcp_server/) ────────────────────┐
@@ -178,11 +179,12 @@ zspace-mcp-poc/
 │   ├── Dockerfile + docker-compose.yml
 │   └── README.md           REST 协议(端点表)
 │
-├── skills/       6 个自动化 skill
+├── skills/       7 个自动化 skill
 │   ├── nas-setup/       前置:验证 env/登录/可选组件
 │   ├── rag-manager/     RAG 语义搜索索引管理(门控/重建/增量)
 │   ├── ios-memo-bak/    iPhone 备忘录 → 极空间记事本
 │   ├── media-organizer/ 极影视分类审计
+│   ├── media-naming/    影视文件命名正向校验
 │   ├── label-manager/   标签管理
 │   └── file-organizer/  文件库诊断
 │
@@ -274,7 +276,7 @@ zspace-mcp-poc/
 | `reindex` | 重建索引 |
 | `index_status` | 索引概况 |
 
-## Skill 清单(6)
+## Skill 清单(7)
 
 | Skill | 触发词 | 用途 |
 |---|---|---|
@@ -282,6 +284,7 @@ zspace-mcp-poc/
 | `rag-manager` | RAG 索引、reindex | RAG 语义搜索索引生命周期管理 |
 | `ios-memo-bak` | iPhone 备忘录同步 | 一键配置 iPhone Shortcut → NAS 记事本 |
 | `media-organizer` | 极影视整理、frds 拆分 | 只读审计分类/源目录/影片抽样 |
+| `media-naming` | 影视命名、水印/PT名、合集拆分 | 文件系统命名正向合规扫描 |
 | `label-manager` | 打标签、按标签找 | 标签 CRUD + 反向查询 |
 | `file-organizer` | 重复文件、孤儿文件 | 文件库只读诊断 |
 
