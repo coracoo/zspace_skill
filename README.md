@@ -1,3 +1,5 @@
+
+
 # ZSpace NAS MCP
 
 90 个 MCP tool + 7 个 skill,让 Claude/Cursor 直接操作极空间 NAS。
@@ -45,6 +47,7 @@ skill 在 `skills/` 目录下,Claude Code 在该目录启动时自动发现。
 
 ```bash
 cd rag-server
+# 先改 docker-compose.yml 里 /your/nas/path 为要索引的 NAS 目录
 docker compose up -d                # image: coracoo/cherry:nas_rag
 # 详细: rag-server/README.md
 ```
