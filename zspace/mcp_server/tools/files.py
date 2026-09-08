@@ -6,6 +6,7 @@
 - `from zspace.mcp_server.main import mcp`        — mcp 永不重新赋值,from-import 安全
 - `from zspace.mcp_server import main as _main`   — 通过 _main.nas 访问 _startup 后赋值的 NasClient
 """
+import os
 from zspace.mcp_server import main as _main
 from zspace.mcp_server.main import mcp
 from zspace.mcp_server.perf import _to_json
@@ -14,7 +15,7 @@ from zspace.mcp_server.rag_hook import _rag_hook
 
 # ---- 文件读(5)----
 @mcp.tool()
-async def list_files(path: str = "/sata14/my/data/") -> str:
+async def list_files(path: str = os.environ.get("NAS_FILE_ROOT", "/sata14/my/data/")) -> str:
     """列出 NAS 目录下的文件/文件夹。路径格式:/<pool>/my/<子目录>/,例如 /sata14/my/data/。
     用户只能看自己 /池名/my/ 下的内容。"""
     nas = _main.nas
