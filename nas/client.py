@@ -5,11 +5,14 @@
 - _common_query() → common_query(self._device_id)(来自 .proto)
 """
 import asyncio
+import base64
 import logging
 import os
 from typing import Optional
 
 import httpx
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 from .auth import encrypt_field, resolve_device_id
 from .proto import NAS_BASE, common_query
@@ -55,9 +58,20 @@ class NasClient:
     async def login(self) -> dict:
         """RSA 加密登录,返回 profile"""
         await self._ensure_client()
+        # 新固件公钥会轮换,优先从 /key/pub 拉动态公钥,失败回退 auth.py 硬编码
+        try:
+            r = await self._client.get(f"{NAS_BASE}/key/pub")
+            pem = r.json()["data"]["key"]
+            _key = load_pem_public_key(pem.encode())
+            _encrypt = lambda s: base64.b64encode(
+                _key.encrypt(s.encode("utf-8"), padding.PKCS1v15())
+            ).decode("ascii")
+        except Exception:
+            log.warning("dynamic /key/pub unavailable, using built-in pubkey")
+            _encrypt = encrypt_field
         form = {
-            "username": encrypt_field(NAS_USER),
-            "password": encrypt_field(NAS_PASSWORD),
+            "username": _encrypt(NAS_USER),
+            "password": _encrypt(NAS_PASSWORD),
             "plat": "web",
             "device": "linux",
             "device_id": self._device_id,

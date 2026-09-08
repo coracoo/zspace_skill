@@ -110,7 +110,7 @@ def check_login() -> dict:
         async def _try():
             nas = NasClient()
             await nas.login()
-            r = await nas.post("/v2/file/list", {"folderId": 0, "path": "/sata14/my/data/", "start": 0, "num": 1})
+            r = await nas.post("/v2/file/list", {"folderId": 0, "path": os.environ.get("NAS_FILE_ROOT", "/sata14/my/data/"), "start": 0, "num": 1})
             return r
 
         r = asyncio.run(_try())
