@@ -49,15 +49,64 @@ ERR_PERM = "N001411"
 
 # ============ 池发现 ============
 
+def _probe_root(root: str) -> str:
+    """探一下数据根是否可访问,返回 status。"""
+    probe = nas_client.post("/v2/file/list", {
+        "folderId": 0, "path": root, "start": 0, "num": 1,
+        "sortby": "name", "order": "asc", "show_hidden": 0,
+    })
+    code = str(probe.get("code", ""))
+    if code == ERR_PERM:
+        return "perm"
+    if code != "200":
+        return f"err:{code}"
+    items = (probe.get("data") or {}).get("list", []) or []
+    return "ok" if items else "empty"
+
+
+def _fallback_roots(want_pool: str = "") -> list[tuple[str, str, str]]:
+    """池列表拿不到时的回落:按候选路径探测真实数据根。
+
+    某些固件(实测 z2 / version 2.3.2026060701)`/zspool/info` 返回
+    N300477「存储池未准备就绪」,而 `/storagepool/info` 里的池名(如 zdr)
+    又不等于文件系统根名(如 sata1)—— 无法从池名推导路径,只能探测。
+    """
+    cands: list[str] = []
+    env_path = os.environ.get("NAS_DATA_PATH", "").strip()
+    if env_path:
+        cands.append(env_path if env_path.endswith("/") else env_path + "/")
+    cands += [f"/sata{i}/my/data/" for i in range(1, 17)]
+    cands.append("/my/data/")
+
+    roots: list[tuple[str, str, str]] = []
+    seen: set[str] = set()
+    for root in cands:
+        if root in seen:
+            continue
+        seen.add(root)
+        name = root.strip("/").split("/")[0]
+        if want_pool and name != want_pool:
+            continue
+        status = _probe_root(root)
+        # 只保留真实存在的根,避免把 15 个不存在的候选都报出来
+        if status in ("ok", "empty", "perm"):
+            roots.append((name, root, status))
+        time.sleep(SLEEP_BETWEEN_PAGES)
+    return roots
+
+
 def discover_scan_roots(want_pool: str = "") -> list[tuple[str, str, str]]:
     """返回 [(pool_name, root_path, status)],status in {'ok','empty','perm'}。
 
     NAS `/zspool/info` 的池列表在 `data.pool_list`。每个池的真实用户文件根是
     `/<pool>/my/data/`(不是 `/my/`,`/my/` 直接列会返回 N001411 权限拒绝)。
+    池列表不可用时回落到 `_fallback_roots()` 探测。
     """
     roots: list[tuple[str, str, str]] = []
     resp = nas_client.post("/zspool/info", {})
     pools = (resp.get("data") or {}).get("pool_list", []) or []
+    if not pools:
+        return _fallback_roots(want_pool)
     for pool in pools:
         name = pool.get("name", "")
         if not name:
@@ -65,20 +114,7 @@ def discover_scan_roots(want_pool: str = "") -> list[tuple[str, str, str]]:
         if want_pool and name != want_pool:
             continue
         root = f"/{name}/my/data/"
-        # 探一下根是否可访问
-        probe = nas_client.post("/v2/file/list", {
-            "folderId": 0, "path": root, "start": 0, "num": 1,
-            "sortby": "name", "order": "asc", "show_hidden": 0,
-        })
-        code = str(probe.get("code", ""))
-        if code == ERR_PERM:
-            status = "perm"
-        elif code != "200":
-            status = f"err:{code}"
-        else:
-            items = (probe.get("data") or {}).get("list", []) or []
-            status = "ok" if items else "empty"
-        roots.append((name, root, status))
+        roots.append((name, root, _probe_root(root)))
         time.sleep(SLEEP_BETWEEN_PAGES)
     return roots
 
