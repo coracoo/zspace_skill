@@ -96,31 +96,53 @@ def check_env() -> dict:
         elif is_empty and var in OPTIONAL_VARS:
             pass  # 可选变量,不报 issue
 
+    # ok = 全部变量齐;hard_ok = 仅必需变量齐(推荐/可选缺失只算警告)
+    # RAG / SSH 属可选项,缺失不应让整体判红。
+    results["hard_ok"] = not any(i.startswith("必需变量") for i in results["issues"])
     results["ok"] = len(results["issues"]) == 0
     return results
 
 
 def check_login() -> dict:
-    """尝试 NAS 登录,调 whoami。"""
+    """尝试 NAS 登录,再列一次真实目录确认会话可用。
+
+    数据根路径因机型/盘位而异(sata1 / sata14 / sata2 ...),不能写死:
+    依次尝试 `NAS_DATA_PATH` 环境变量 + 常见候选,取第一个 200 的。
+    """
     try:
         sys.path.insert(0, str(PROJECT_ROOT))
         from nas import NasClient
         import asyncio
 
+        candidates = []
+        if os.environ.get("NAS_DATA_PATH"):
+            candidates.append(os.environ["NAS_DATA_PATH"])
+        candidates += [
+            "/sata1/my/data/", "/sata14/my/data/", "/sata2/my/data/",
+            "/sata3/my/data/", "/sata4/my/data/", "/my/data/",
+        ]
+
         async def _try():
             nas = NasClient()
             await nas.login()
-            r = await nas.post("/v2/file/list", {"folderId": 0, "path": "/sata14/my/data/", "start": 0, "num": 1})
-            return r
+            last = None
+            for p in candidates:
+                r = await nas.post(
+                    "/v2/file/list",
+                    {"folderId": 0, "path": p, "start": 0, "num": 1},
+                )
+                if str(r.get("code", "")) == "200":
+                    return r, p
+                last = r
+            return last, None
 
-        r = asyncio.run(_try())
+        r, hit = asyncio.run(_try())
         code = str(r.get("code", ""))
         if code == "200":
-            profile = nas._profile if hasattr(NasClient.__init__, '_profile') else {}
             return {
                 "ok": True,
                 "code": code,
-                "user": f"已登录(NAS_HOST={os.environ.get('NAS_HOST','')})",
+                "user": f"已登录(NAS_HOST={os.environ.get('NAS_HOST','')},数据根={hit})",
             }
         else:
             msg = r.get("msg", "")
@@ -225,8 +247,8 @@ def main():
             print(f"   → 启动: cd rag-server && docker compose up -d")
         print()
 
-    # 汇总
-    all_ok = env["ok"] and login["ok"] and mcp["ok"]
+    # 汇总(用 hard_ok:可选组件缺失不判红)
+    all_ok = env.get("hard_ok", env["ok"]) and login["ok"] and mcp["ok"]
     rag_ok = results["rag"] is None or results["rag"].get("ok", False)
     print("=" * width)
     if all_ok and rag_ok:

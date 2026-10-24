@@ -31,11 +31,12 @@
 | 域 | 端点 | 方法 | 关键参数 | 状态 |
 |---|---|---|---|---|
 | **鉴权** | `/auth/login` | POST form | username,password,plat,device,device_id | ✅ |
+| | `/key/pub` | GET | signme=1 | ✅ 登录公钥(见 1.1) |
 | | `/auth/token` | POST | token(cookie) | ✅ 内部校验 |
 | | `/auth/loginlist` | POST | — | ✅ |
 | | `/auth/ismaster` / `pwdcheck` / `tmptoken` | POST | — | 待测 |
 | **监控** | `GET /zstatus` | GET | — | ✅ HTML |
-| **存储池** | `/zspool/info` | GET | — | ✅ |
+| **存储池** | `/zspool/info` | GET | — | ✅ / Z2 返回 N300477 |
 | | `/zspool/capability` | GET | — | ✅ |
 | | `/zspool/hardware/info` | GET | — | ✅ |
 | | `/zspool/polling` | GET | — | ✅ |
@@ -43,7 +44,7 @@
 | | `/zspool/snapshot/list` | POST | pool_id | ✅ |
 | | `/zspool/smart/report2` | POST | disk_id | ✅ |
 | | `/zspool/cache/hits` | GET | — | 已下线 |
-| | `/storagepool/*` | — | — | 已弃用(N302001) |
+| | `/storagepool/*` | — | — | ⚠️ 部分固件已弃用(N302001);Z2 上 `/storagepool/info` 仍可用 |
 | **文件** | `/v2/file/list` | POST form | path,start,num,sortby,order | ✅ |
 | | `/v2/file/info` | POST form | path | ✅ |
 | | `/v2/file/newdir` | POST form | parent,name,rename | ✅ 写 |
@@ -180,16 +181,26 @@ Content-Type: application/x-www-form-urlencoded
 | `device` | 任意,如 `linux` |
 | `device_id` | **严格 32 字符**(可用 md5 hex) |
 
-**公钥**(从 NAS 公开端点 `/zspace/system/private/pubkey` 获取,base64 解码后是 2048-bit PEM):
-```
-<RSA_PUBKEY_PEM — 从 NAS /zspace/system/private/pubkey 获取>
+**公钥**:`GET /key/pub?signme=1` → `{"code":"200","data":{"key":"<2048-bit PEM>"}}`
+
+```bash
+curl -s "http://<nas>:5055/key/pub?signme=1" | jq -r .data.key
 ```
 
-⚠️ **易踩坑**:`/zspace/system/private/server_pubkey` 是另一个 1024-bit 公钥(用于 `sign2string`/注册流程),登录用的是 `pubkey` 不是它。
+⚠️ **易踩坑(重要)**:登录公钥**随固件版本变化**,不能硬编码。公钥不匹配时服务端解不开密文,返回的是
+`N001200 账号格式不对或该账号已存在` —— 而不是"密码错误",极易误判成账号写错、白查半天。
+pcweb 前端本身就是运行时读 store 里的 `nasPubKey` 再加密的(`index.*.js` 里的 `nasPubKey` getter),
+所以客户端应当在登录前现拉,或至少把拉取失败作为兜底路径。
+
+> 端点变更记录:旧文档写的 `/zspace/system/private/pubkey` 在 Z2(version `2.3.2026060701`)上返回
+> `404 page not found`;`/zspace/system/private/server_pubkey` 是另一个 1024-bit 公钥(用于
+> `sign2string`/注册流程),也不是登录公钥。实际可用的只有 `/key/pub`。
 
 **加密对应**:
 - 服务端 `Plugin_Util::transDecode` = `base64_decode` + `openssl_private_decrypt`(PHP,默认 PKCS1v15)
 - 客户端 = `RSA.public_encrypt(PKCS1v15)` + `base64`(Python `cryptography.hazmat.primitives.asymmetric.padding.PKCS1v15()`)
+- 注意:pcweb 里还有个 `Fd(value, key)` 工具函数,当 key 为内置的 512-bit 默认值时会把明文按 50 字符
+  分块、用 `~` 拼接;传 `nasPubKey`(2048-bit)时走整串单次加密 —— 后者才是登录路径。
 
 ### 1.2 登录返回
 
@@ -1093,12 +1104,15 @@ NAS 上 `/dev/shm/*.socket` 显示以下服务在跑(全部可通过 openresty �
 | code | 含义 |
 |------|------|
 | `200` | 成功(注意是字符串) |
-| `N001200` | 账号格式不对或已存在 |
+| `N001200` | 账号格式不对或已存在(**公钥不匹配时也返回这个**,见 1.1) |
+| `N001203` | 用户名或密码不正确 |
 | `N001208` | token 已失效 |
 | `N001212` | 参数有误 |
+| `N001315` | 文件不存在(路径写错时常见) |
 | `N001411` | 无权限进行此操作(常见:path 越权或 device 不匹配) |
 | `N001414` | 新设备登陆,需进行安全验证(SMS) |
 | `N001603` | 保险箱未打开 |
+| `N300477` | 存储池未准备就绪(Z2 上 `/zspool/info` 常见) |
 | `N302001` | 存储池已升级到 v3(用了旧 `/storagepool/` 端点) |
 
 ---
@@ -1106,11 +1120,15 @@ NAS 上 `/dev/shm/*.socket` 显示以下服务在跑(全部可通过 openresty �
 ## 11. 已知坑
 
 1. **`/system/*` 外部一律 404**:openresty `location /local/` 只允许 `127.0.0.1`。要拿系统数据用 `/zstatus` 或 SSH 隧道。
-2. **`server_pubkey` ≠ `pubkey`**:前者 1024-bit(注册流程用),后者 2048-bit(登录用)。
+2. **登录公钥随固件变化**:`server_pubkey` 1024-bit(注册流程用)≠ 登录公钥 2048-bit。登录公钥从
+   `GET /key/pub?signme=1` 现拉,别硬编码 —— 硬编码过期后报的是误导性的 `N001200`。
 3. **device_id 严格 32 字符**:`strlen != 32` 直接拒绝。
 4. **path 必须含 `/my/` 子目录**:`/sata14/` 和 `/sata14/my/` 都报 N001411。
-5. **POST 默认 form-urlencoded**:不是 JSON,pcweb 默认行为,要照抄。
-6. **所有请求都带公共 query params**:`plat` + `version` + `device_id` + `device` + `_l`。
+5. **数据根名随盘位/机型变化**:实测 Z2 是 `/sata1/my/data/`,另一台是 `/sata14/my/data/`。
+   不要写死,按候选探测或读配置。池名(`/storagepool/info` 里的 `zdr`)与文件系统根名(`sata1`)
+   **不等价**,不能互相推导。
+6. **POST 默认 form-urlencoded**:不是 JSON,pcweb 默认行为,要照抄。
+7. **所有请求都带公共 query params**:`plat` + `version` + `device_id` + `device` + `_l`。
 ---
 
 ## 12. 模拟客户端最小代码片段
@@ -1121,7 +1139,9 @@ import httpx
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
-PUBKEY = load_pem_public_key(NAS_PUBKEY_PEM)  # 见 1.1
+PUBKEY = load_pem_public_key(
+    httpx.get("http://<nas_ip>:5055/key/pub?signme=1").json()["data"]["key"].encode()
+)  # 见 1.1,必须现拉,不要硬编码
 DEVICE_ID = "<your_device_id_32_hex>"  # 复用已登记的 device_id
 
 def enc(s: str) -> str:
